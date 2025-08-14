@@ -1,48 +1,66 @@
 const apiKey = process.env.API_KEY;
 const { Client, GatewayIntentBits } = require('discord.js');
 const { CronJob } = require('cron');
-const fetch = require('node-fetch'); // If on Node 18+, fetch is built-in
+const fetch = require('node-fetch'); // or native fetch on Node 18+
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
+
+async function fetchApiData() {
+  try {
+    const response = await fetch('https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC', {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+    const data = await response.json();
+    console.log('API response:', data);
+    return data;
+  } catch (error) {
+    console.error('Error during API call:', error);
+    return null;
+  }
+}
 
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-  // Schedule the job for 20:00 UTC every day (no DST adjustments)
   const job = new CronJob(
-    '0 20 * * *', // At 20:00 every day
+    '0 20 * * *',
     async () => {
       console.log('Running scheduled API call at 20:00 UTC (fixed time)');
-
-      try {
-        // Example API call (replace with your actual API URL and headers)
-        const response = await fetch('https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC', {
-          headers: {
-            'Authorization': `Bearer ${process.env.API_KEY}`
-          }
-        });
-        const data = await response.json();
-        console.log('API response:', data);
-
-        // Example: send to a Discord channel
-        // const channel = client.channels.cache.get('YOUR_CHANNEL_ID');
-        // if (channel) channel.send(`API Data: ${JSON.stringify(data)}`);
-
-      } catch (error) {
-        console.error('Error during API call:', error);
-      }
+      await fetchApiData();
+      // You can also send a scheduled message here if you want
     },
     null,
     true,
-    'UTC' // Timezone fixed to UTC, no DST
+    'UTC'
   );
 
   job.start();
 });
 
+// Listen for !manual command
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return; // Ignore bot messages
+  if (message.content === '!manual') {
+    console.log('Manual command received');
+    const data = await fetchApiData();
+    if (data) {
+      // Reply in Discord channel with a summary or confirmation
+      message.channel.send('Manual API call done! Check console for data.');
+      
+      // Or send some specific data from API, e.g.:
+      // message.channel.send(`Faction crimes planning count: ${data.crimes.length}`);
+    } else {
+      message.channel.send('Failed to fetch data. See logs for details.');
+    }
+  }
+});
+
 client.login(process.env.TOKEN);
-
-
-
