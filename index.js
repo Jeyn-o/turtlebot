@@ -1,7 +1,4 @@
-
-console.log(`Token length: ${process.env.TOKEN.length}`);
-console.log(`Token (first 5 chars): ${process.env.TOKEN.slice(0,5)}`);
-
+const apiKey = process.env.API_KEY;
 const { Client, GatewayIntentBits } = require('discord.js');
 
 const client = new Client({
@@ -23,4 +20,5 @@ client.on('messageCreate', message => {
 });
 
 client.login(process.env.TOKEN);
+
 
