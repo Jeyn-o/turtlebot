@@ -14,12 +14,15 @@ const client = new Client({
 
 async function fetchApiData() {
   try {
-    const response = await fetch('https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC', {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
-    });
+    const response = await fetch(`https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC&apikey=${apiKey}`);
     const data = await response.json();
+
+if (data.error) {
+  console.error('API error:', data.error);
+  message.channel.send(`❌ API Error: ${data.error}`);
+  return;
+}
+
     console.log('API response:', data);
     return data;
   } catch (error) {
@@ -65,4 +68,5 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.TOKEN);
+
 
