@@ -1,7 +1,8 @@
 const apiKey = process.env.API_KEY;
 const { Client, GatewayIntentBits } = require('discord.js');
 const { CronJob } = require('cron');
-const fetch = require('node-fetch'); // or native fetch on Node 18+
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
 
 const client = new Client({
   intents: [
@@ -64,3 +65,4 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.TOKEN);
+
