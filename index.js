@@ -12,24 +12,30 @@ const client = new Client({
   ]
 });
 
-async function fetchApiData() {
+async function fetchApiData(message = null) {
   try {
     const response = await fetch(`https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC&apikey=${apiKey}`);
     const data = await response.json();
 
-if (data.error) {
-  console.error('API error:', data.error);
-  message.channel.send(`❌ API Error: ${data.error}`);
-  return;
-}
+    if (data.error) {
+      console.error('API error:', data.error);
+      if (message) {
+        message.channel.send(`❌ API Error: ${data.error}`);
+      }
+      return null;
+    }
 
-    console.log('API response:', data);
     return data;
+
   } catch (error) {
     console.error('Error during API call:', error);
+    if (message) {
+      message.channel.send('❌ Failed to fetch data. Check logs.');
+    }
     return null;
   }
 }
+
 
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -51,22 +57,19 @@ client.once('ready', () => {
 
 // Listen for !manual command
 client.on('messageCreate', async (message) => {
-  if (message.author.bot) return; // Ignore bot messages
+  if (message.author.bot) return;
   if (message.content === '!manual') {
     console.log('Manual command received');
-    const data = await fetchApiData();
+    const data = await fetchApiData(message);
+
     if (data) {
-      // Reply in Discord channel with a summary or confirmation
-      message.channel.send('Manual API call done! Check console for data.');
-      
-      // Or send some specific data from API, e.g.:
-      // message.channel.send(`Faction crimes planning count: ${data.crimes.length}`);
-    } else {
-      message.channel.send('Failed to fetch data. See logs for details.');
+      message.channel.send('✅ Manual API call done!');
     }
   }
 });
 
+
 client.login(process.env.TOKEN);
+
 
 
