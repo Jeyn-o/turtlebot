@@ -2,6 +2,7 @@ const apiKey = process.env.API_KEY;
 const { Client, GatewayIntentBits } = require('discord.js');
 const { CronJob } = require('cron');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const port = process.env.PORT || 4000; //fake port?
 
 
 const client = new Client({
@@ -14,7 +15,7 @@ const client = new Client({
 
 async function fetchApiData(message = null) {
   try {
-    const response = await fetch(`https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC&apikey=${apiKey}`);
+    const response = await fetch(`https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC&key=${apiKey}`);
     const data = await response.json();
 
     if (data.error) {
@@ -70,6 +71,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
