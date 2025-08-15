@@ -83,7 +83,7 @@ async function process1() {
 
       message.channel.send(`${crime.name} is beind delayed by: ${slackers.join(', ')}`);
     }
-    if(isEpochInNext24Hours(crime.ready_at) {
+    if(isEpochInNext24Hours(crime.ready_at)) {
       //coming up
       let emptys=[];
       crime.slots.forEach(member => {
@@ -141,6 +141,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
