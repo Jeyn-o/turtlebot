@@ -68,57 +68,70 @@ function getMemberName(id) {
   return member ? member.name : null; // or return "Not found"
 }
 
-async function process1() {
-  message.channel.send(`Scanning for delayed or undersupplied OCs...`);
+async function process1() {async function process1(channel = null) {
+  if (channel) {
+    channel.send(`Scanning for delayed or undersupplied OCs...`);
+  }
+
   ocdata.crimes.forEach(crime => {
-    if(isEpochInPast(crime.ready_at) && crime.ready_at === null) {
-      //delayed
-      let slackers=[];
+    if (isEpochInPast(crime.ready_at) && crime.ready_at === null) {
+      // delayed
+      let slackers = [];
       crime.slots.forEach(member => {
         const name = getMemberName(member.user.id);
         const entry = memberdata.members.find(m => m.id === member.user.id);
-        if (entry.status.description != "Okay") {
+        if (entry.status.description !== "Okay") {
           slackers.push(name);
-        };
-      });
-
-      message.channel.send(`${crime.name} is beind delayed by: ${slackers.join(', ')}`);
-    }
-    if(isEpochInNext24Hours(crime.ready_at)) {
-      //coming up
-      let emptys=[];
-      crime.slots.forEach(member => {
-        if (member.item_requirement) {
-          if(!member.item_requirement.is_available) {
-            if(member.user) {
-              emptys.push(member.user.id);
-            }
-          }
         }
       });
-      //alert
-      if (emptys.length!=0) {
-        const names = emptys.map(id => {
-          const member = data.members.find(m => m.id === id);
-          return member ? member.name : null; // Optional fallback for missing IDs
-          });
 
-        message.channel.send(`${crime.name} has users with missing items: ${names.join(', ')}`);
+      if (channel) {
+        channel.send(`${crime.name} is being delayed by: ${slackers.join(', ')}`);
+      }
+    }
+
+    if (isEpochInNext24Hours(crime.ready_at)) {
+      // coming up
+      let emptys = [];
+      crime.slots.forEach(member => {
+        if (
+          member.item_requirement &&
+          !member.item_requirement.is_available &&
+          member.user
+        ) {
+          emptys.push(member.user.id);
+        }
+      });
+
+      if (emptys.length !== 0 && channel) {
+        const names = emptys.map(id => {
+          const member = memberdata.members.find(m => m.id === id);
+          return member ? member.name : null;
+        });
+
+        channel.send(`${crime.name} has users with missing items: ${names.join(', ')}`);
       }
     }
   });
 }
 
+
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   const job = new CronJob(
-    //'0 20 * * *', //everyday at 20:00
-    '*/10 * * * *', //every 10 minutes
+    '*/10 * * * *', // every 10 minutes
     async () => {
-      console.log('Running scheduled API call at 20:00 UTC (fixed time)');
-      await fetchApiData();
-      // You can also send a scheduled message here if you want
+      console.log('Running scheduled API call...');
+      const guild = client.guilds.cache.first(); // or use a specific ID
+      const channel = guild.channels.cache.get(process.env.CHANNEL_ID); // set this in your .env
+      if (!channel) {
+        console.error('Target channel not found!');
+        return;
+      }
+
+      await fetchApiData();     // fetches and sets ocdata & memberdata
+      await process1(channel);  // pass the channel for messaging
     },
     null,
     true,
@@ -127,6 +140,7 @@ client.once('ready', () => {
 
   job.start();
 });
+
 
 // Listen for !manual command
 client.on('messageCreate', async (message) => {
@@ -143,6 +157,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
