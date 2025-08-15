@@ -4,12 +4,24 @@ if (process.env.IS_PRIMARY !== 'true') {
   process.exit(0);
 }
 
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 4000;
+
+app.get('/', (req, res) => {
+  res.send('Bot is alive!');
+});
+
+app.listen(port, () => {
+  console.log(`Web server running on port ${port}`);
+});
+
+
 
 const apiKey = process.env.API_KEY;
 const { Client, GatewayIntentBits } = require('discord.js');
 const { CronJob } = require('cron');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const port = process.env.PORT || 4000; //fake port?
 let ocdata;
 let memberdata;
 
@@ -190,6 +202,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
