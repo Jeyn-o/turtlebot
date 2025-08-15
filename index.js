@@ -113,7 +113,8 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   const job = new CronJob(
-    '0 20 * * *',
+    //'0 20 * * *', //everyday at 20:00
+    '*/10 * * * *', //every 10 minutes
     async () => {
       console.log('Running scheduled API call at 20:00 UTC (fixed time)');
       await fetchApiData();
@@ -142,6 +143,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
