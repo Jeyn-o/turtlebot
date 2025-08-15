@@ -68,7 +68,7 @@ function getMemberName(id) {
   return member ? member.name : null; // or return "Not found"
 }
 
-async function process1() {async function process1(channel = null) {
+async function process1(channel = null) {
   if (channel) {
     channel.send(`Scanning for delayed or undersupplied OCs...`);
   }
@@ -157,6 +157,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
