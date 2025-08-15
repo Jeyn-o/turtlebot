@@ -1,3 +1,4 @@
+console.log(`Bot starting. IS_PRIMARY: ${process.env.IS_PRIMARY}`);
 if (process.env.IS_PRIMARY !== 'true') {
   console.log('🔁 Not primary instance, exiting...');
   process.exit(0);
@@ -189,6 +190,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
