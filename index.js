@@ -69,6 +69,7 @@ function getMemberName(id) {
 }
 
 async function process1() {
+  message.channel.send(`Scanning for delayed or undersupplied OCs...`);
   ocdata.crimes.forEach(crime => {
     if(isEpochInPast(crime.ready_at) && crime.ready_at === null) {
       //delayed
@@ -141,6 +142,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
