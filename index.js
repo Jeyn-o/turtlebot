@@ -16,12 +16,15 @@ const client = new Client({
 });
 
 async function fetchApiData(message = null) {
+  console.log('📡 fetchApiData() called');
+
   try {
-    const response1 = await fetch(`https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC&key=${apiKey}`);
+    const response1 = await fetch(`https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC&key=${apiKey}&comment=autoturtle`);
     const data1 = await response1.json();
 
-    const response2 = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${apiKey}`);
+    const response2 = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${apiKey}&comment=autoturtle`);
     const data2 = await response2.json();
+
 
     if (data1.error) {
       console.error('API error:', data1.error);
@@ -130,24 +133,34 @@ async function process1(channel = null) {
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-  const job = new CronJob(
-    '*/10 * * * *', // every 10 minutes
-    async () => {
+  let jobRunning = false;
+
+const job = new CronJob(
+  '*/10 * * * *',
+  async () => {
+    if (jobRunning) return;  // skip if still running
+    jobRunning = true;
+
+    try {
       console.log('Running scheduled API call...');
-      const guild = client.guilds.cache.first(); // or use a specific ID
-      const channel = guild.channels.cache.get(process.env.CHANNEL_ID); // set this in your .env
+      const guild = client.guilds.cache.first();
+      const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
       if (!channel) {
         console.error('Target channel not found!');
         return;
       }
 
-      await fetchApiData();     // fetches and sets ocdata & memberdata
-      await process1(channel);  // pass the channel for messaging
-    },
-    null,
-    true,
-    'UTC'
-  );
+      await fetchApiData();
+      await process1(channel);
+    } finally {
+      jobRunning = false;
+    }
+  },
+  null,
+  true,
+  'UTC'
+);
+
 
   job.start();
 });
@@ -170,6 +183,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
