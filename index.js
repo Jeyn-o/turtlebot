@@ -69,13 +69,17 @@ function getMemberName(id) {
 }
 
 async function process1(channel = null) {
-  if (channel) {
-    channel.send(`Scanning for delayed or undersupplied OCs...`);
-  }
+  if (!channel) return;
+
+  const scanMsg = await channel.send(`🔍 Scanning for delayed or undersupplied OCs...`);
+
+  let issuesFound = false;
 
   ocdata.crimes.forEach(crime => {
+    // 1. Delayed crime
     if (isEpochInPast(crime.ready_at) && crime.ready_at === null) {
-      // delayed
+      issuesFound = true;
+
       let slackers = [];
       crime.slots.forEach(member => {
         const name = getMemberName(member.user.id);
@@ -85,13 +89,11 @@ async function process1(channel = null) {
         }
       });
 
-      if (channel) {
-        channel.send(`${crime.name} is being delayed by: ${slackers.join(', ')}`);
-      }
+      channel.send(`⏳ **${crime.name}** is being delayed by: ${slackers.join(', ')}`);
     }
 
+    // 2. Missing item requirement
     if (isEpochInNext24Hours(crime.ready_at)) {
-      // coming up
       let emptys = [];
       crime.slots.forEach(member => {
         if (
@@ -103,17 +105,27 @@ async function process1(channel = null) {
         }
       });
 
-      if (emptys.length !== 0 && channel) {
+      if (emptys.length !== 0) {
+        issuesFound = true;
+
         const names = emptys.map(id => {
           const member = memberdata.members.find(m => m.id === id);
           return member ? member.name : null;
         });
 
-        channel.send(`${crime.name} has users with missing items: ${names.join(', ')}`);
+        channel.send(`📦 **${crime.name}** has users with missing items: ${names.join(', ')}`);
       }
     }
   });
+
+  // Final message handling
+  if (!issuesFound) {
+    await scanMsg.edit('✅ All OCs look good!');
+  } else {
+    await scanMsg.delete(); // Remove the "Scanning..." message if alerts were sent
+  }
 }
+
 
 
 client.once('ready', () => {
@@ -157,6 +169,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
