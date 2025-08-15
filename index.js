@@ -1,3 +1,9 @@
+if (process.env.IS_PRIMARY !== 'true') {
+  console.log('🔁 Not primary instance, exiting...');
+  process.exit(0);
+}
+
+
 const apiKey = process.env.API_KEY;
 const { Client, GatewayIntentBits } = require('discord.js');
 const { CronJob } = require('cron');
@@ -183,6 +189,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
