@@ -39,7 +39,6 @@ async function fetchApiData(message = null) {
     }
     ocdata=data1;
     memberdata=data2;
-    process1();
     return data1;
 
   } catch (error) {
@@ -159,16 +158,19 @@ client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (message.content === '!manual') {
     console.log('Manual command received');
-    const data = await fetchApiData(message);
+    const data = await fetchApiData();
+    await process1(message.channel); // ✅ explicitly call with correct channel
 
     if (data) {
       message.channel.send('✅ Manual API call done!');
     }
+
   }
 });
 
 
 client.login(process.env.TOKEN);
+
 
 
 
