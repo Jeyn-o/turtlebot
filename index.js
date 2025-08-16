@@ -217,7 +217,8 @@ client.on('messageCreate', async (message) => {
 
   }
   if (message.content === '!reboot') {
-    await message.reply('Rebooting...');
+    console.log('Reboot command received');
+    message.channel.send('Rebooting...');
     process.exit(0); // Triggers a container restart by crashing
   }
 
@@ -225,6 +226,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
