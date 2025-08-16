@@ -36,6 +36,39 @@ const client = new Client({
   ]
 });
 
+const itemidlist = {
+//Tools
+568 :  "Jemmy",
+1362:  "Net",
+1203:  "Lockpicks",
+1350:  "Police Badge",
+1383:  "DSLR Camera",
+1380:  "RF Detector",
+643 :  "Construction Helmet",
+1258:  "Binoculars",
+981 :  "Wire Cutters",
+159 :  "Bolt Cutters",
+1284:  "Dental Mirror",
+1080:  "Billfold",
+1331:  "Hand Drill",
+//Materials
+1361:  "Dog Treats",
+1381:  "ID Badge",
+1379:  "ATM Key",
+172 :  "Gasoline",
+201 :  "PCP",
+1429:  "Zip Ties",
+73  :  "Stealth Virus",
+856 :  "Spray Paint : Black",
+576 :  "Chloroform",
+222 :  "Flash Grenade",
+190 :  "C4 Explosive",
+1431:  "Core Drill",
+1430:  "Shaped Charge",
+103 :  "Firewalk Virus",
+226 :  "Smoke Grenade"
+};
+
 async function fetchApiData(message = null) {
   console.log('📡 fetchApiData() called');
 
@@ -226,6 +259,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
