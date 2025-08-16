@@ -24,6 +24,8 @@ const { CronJob } = require('cron');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 let ocdata;
 let memberdata;
+let prevslackers;
+let prevmissers;
 
 
 const client = new Client({
@@ -109,13 +111,18 @@ async function process1(channel = null) {
           slackers.push(name);
         }
       });
-
-      channel.send(`⏳ **${crime.name}** is being delayed by: ${slackers.join(', ')}`);
+      if(slackers==prevslackers) {
+        channel.send(`⏳ No change detected. **${crime.name}** is being delayed by: ${slackers.join(', ')}`);
+      } else {
+        channel.send(`⏳ **${crime.name}** is being delayed by: ${slackers.join(', ')}`);
+      }
+      prevslackers=slackers;
     }
 
     // 2. Missing item requirement
     if (isEpochInNext24Hours(crime.ready_at)) {
       let emptys = [];
+      let emptysitems = [];
       crime.slots.forEach(member => {
         if (
           member.item_requirement &&
@@ -123,6 +130,7 @@ async function process1(channel = null) {
           member.user
         ) {
           emptys.push(member.user.id);
+          emptysitems.push(member.item_requirement.id);
         }
       });
 
@@ -133,8 +141,18 @@ async function process1(channel = null) {
           const member = memberdata.members.find(m => m.id === id);
           return member ? member.name : null;
         });
+        const namesitems = emptysitems.map(item => itemidlist[item] || item);
 
-        channel.send(`📦 **${crime.name}** has users with missing items: ${names.join(', ')}`);
+        const result = names.map((name, index) => `${name}: ${namesitems[index]}`).join(', ');
+        
+        if(names.length!=namesitems.length) {console.warn("OC item error: Array of users and array of items of unequal length!")};
+        
+        if(names==prevmissers) {
+          channel.send(`📦 No change detected. **${crime.name}** has users with missing items: ${result}`);
+        } else {
+          channel.send(`📦 **${crime.name}** has users with missing items: ${result}`);
+        }
+        prevmissers=names;
       }
     }
   });
@@ -202,6 +220,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
