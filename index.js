@@ -203,7 +203,7 @@ const job = new CronJob(
 });
 
 
-// Listen for !manual command
+// Listen for commands
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (message.content === '!manual') {
@@ -216,10 +216,16 @@ client.on('messageCreate', async (message) => {
     }
 
   }
+  if (message.content === '!reboot') {
+    await message.reply('Rebooting...');
+    process.exit(0); // Triggers a container restart by crashing
+  }
+
 });
 
 
 client.login(process.env.TOKEN);
+
 
 
 
