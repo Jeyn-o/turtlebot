@@ -98,7 +98,7 @@ async function process1(channel = null) {
 
   ocdata.crimes.forEach(crime => {
     // 1. Delayed crime
-    if (isEpochInPast(crime.ready_at) && crime.ready_at === null) {
+    if (isEpochInPast(crime.ready_at) && crime.executed_at === null) {
       issuesFound = true;
 
       let slackers = [];
@@ -202,6 +202,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
