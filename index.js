@@ -198,6 +198,64 @@ async function process1(channel = null) {
   }
 }
 
+async function testEmbed(channel = null) {
+  if (!channel) return;
+const exampleEmbed = {
+	color: 0x0099ff,
+	title: 'Some title',
+	url: 'https://discord.js.org',
+	author: {
+		name: 'Some name',
+		icon_url: 'https://i.imgur.com/AfFp7pu.png',
+		url: 'https://discord.js.org',
+	},
+	description: 'Some description here',
+	thumbnail: {
+		url: 'https://i.imgur.com/AfFp7pu.png',
+	},
+	fields: [
+		{
+			name: 'Regular field title',
+			value: 'Some value here',
+		},
+		{
+			name: '\u200b',
+			value: '\u200b',
+			inline: false,
+		},
+		{
+			name: 'Inline field title',
+			value: 'Some value here',
+			inline: true,
+		},
+		{
+			name: 'Inline field title',
+			value: 'Some value here',
+			inline: true,
+		},
+		{
+			name: 'Inline field title',
+			value: 'Some value here',
+			inline: true,
+		},
+	],
+	image: {
+		url: 'https://i.imgur.com/AfFp7pu.png',
+	},
+	timestamp: new Date().toISOString(),
+	footer: {
+		text: 'Some footer text here',
+		icon_url: 'https://i.imgur.com/AfFp7pu.png',
+	},
+};
+
+channel.send({ embeds: [exampleEmbed] });
+}
+
+
+
+
+
 
 
 client.once('ready', () => {
@@ -254,11 +312,17 @@ client.on('messageCreate', async (message) => {
     message.channel.send('Rebooting...');
     process.exit(0); // Triggers a container restart by crashing
   }
+  if (message.content === '!test') {
+    console.log('Test command received');
+    message.channel.send('Sending test embed...');
+    await testEmbed(message.channel);
+  }
 
 });
 
 
 client.login(process.env.TOKEN);
+
 
 
 
