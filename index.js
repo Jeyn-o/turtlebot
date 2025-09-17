@@ -200,61 +200,108 @@ async function process1(channel = null) {
 
 async function testEmbed(channel = null) {
   if (!channel) return;
+//}
+//////////////////////////////////////////////////////////////////
+const delayedFields = [];
+const missingFields = [];
+let issuesFound = false;
+let newIssues = false;
 
-const Embed1 = {
-	color: 0x0099ff,
-	//title: 'Turtlebot report',
-	//url: '',
-	author: {
-		name: 'Turtlebot',
-		icon_url: 'https://avatars.torn.com/48X48_5e865e1c-2ab2-f5d7-2419133.jpg',
-		//url: 'https://discord.js.org',
-	},
-	//description: 'Some description here',
-	thumbnail: {
-		//url: 'https://i.imgur.com/AfFp7pu.png',
-	},
-	fields: [
-		{
-			name: 'Regular field title',
-			value: 'Some value here',
-		},
-		{
-			name: '\u200b',
-			value: '\u200b',
-			inline: false,
-		},
-		{
-			name: 'Inline field title',
-			value: 'Some value here',
-			inline: true,
-		},
-		{
-			name: 'Inline field title',
-			value: 'Some value here',
-			inline: true,
-		},
-		{
-			name: 'Inline field title',
-			value: 'Some value here',
-			inline: true,
-		},
-	],
-	image: {
-		//url: 'https://i.imgur.com/AfFp7pu.png',
-	},
-	timestamp: new Date().toISOString(),
-	footer: {
-		//text: 'Some footer text here',
-		//icon_url: 'https://i.imgur.com/AfFp7pu.png',
-	},
+ocdata.crimes.forEach(crime => {
+  // 1. Delayed crime
+  if (isEpochInPast(crime.ready_at) && crime.executed_at === null) {
+    issuesFound = true;
+
+    let slackers = [];
+    crime.slots.forEach(member => {
+      const name = getMemberName(member.user.id);
+      const entry = memberdata.members.find(m => m.id === member.user.id);
+      if (entry && entry.status.description !== "Okay") {
+        slackers.push(name);
+      }
+    });
+
+    delayedFields.push({
+      name: `${crime.name}`,
+      value: `Delayed by: ${slackers.join(', ') || 'Unknown'}`,
+    });
+  }
+
+  // 2. Missing item requirement
+  if (isEpochInNext24Hours(crime.ready_at)) {
+    let emptys = [];
+    let emptysitems = [];
+
+    crime.slots.forEach(member => {
+      if (
+        member.item_requirement &&
+        !member.item_requirement.is_available &&
+        member.user
+      ) {
+        emptys.push(member.user.id);
+        emptysitems.push(member.item_requirement.id);
+      }
+    });
+
+    if (emptys.length !== 0) {
+      issuesFound = true;
+
+      const names = emptys.map(id => {
+        const member = memberdata.members.find(m => m.id === id);
+        return member ? member.name : "Unknown";
+      });
+
+      const namesitems = emptysitems.map(item => itemidlist[item] || item);
+      const result = names.map((name, index) => `${name}: ${namesitems[index]}`).join(', ');
+
+      if (names.length !== namesitems.length) {
+        console.warn("OC item error: Array of users and items are unequal!");
+      }
+
+      missingFields.push({
+        name: `${crime.name}`,
+        value: `Missing items: ${result}`,
+      });
+    }
+  }
+});
+
+// Compare serialized content to detect new issues (better than == for objects)
+if (
+  JSON.stringify(prev_delayed_crimes) === JSON.stringify(delayedFields) &&
+  JSON.stringify(prev_missing_items) === JSON.stringify(missingFields)
+) {
+  newIssues = false;
+} else {
+  newIssues = true;
+}
+
+const embed = {
+  color: 0x0099ff,
+  author: {
+    name: 'Turtlebot',
+    icon_url: 'https://avatars.torn.com/48X48_5e865e1c-2ab2-f5d7-2419133.jpg',
+  },
+  fields: [...delayedFields, ...missingFields],
+  timestamp: new Date().toISOString(),
+  footer: {
+    text: 'Turtlebot Status Report',
+  },
 };
 
-channel.send({ embeds: [Embed1] });
+// Assuming `channel` is a valid TextChannel
+channel.send({ embeds: [embed] });
+
+//////////////////////////////////////////////////////////////////
 }
 
 
 
+
+
+
+
+	
 
 
 
@@ -323,6 +370,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
