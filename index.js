@@ -198,6 +198,8 @@ async function process1(channel = null) {
   }
 }
 
+
+
 async function testEmbed(channel = null) {
   if (!channel) return;
 //}
@@ -267,14 +269,14 @@ ocdata.crimes.forEach(crime => {
 });
 
 // Compare serialized content to detect new issues (better than == for objects)
-if (
+/*if (
   JSON.stringify(prev_delayed_crimes) === JSON.stringify(delayedFields) &&
   JSON.stringify(prev_missing_items) === JSON.stringify(missingFields)
 ) {
   newIssues = false;
 } else {
   newIssues = true;
-}
+}*/
 
 const embed = {
   color: 0x0099ff,
@@ -370,6 +372,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
