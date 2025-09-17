@@ -200,18 +200,19 @@ async function process1(channel = null) {
 
 async function testEmbed(channel = null) {
   if (!channel) return;
-const exampleEmbed = {
+
+const Embed1 = {
 	color: 0x0099ff,
-	title: 'Some title',
-	url: 'https://discord.js.org',
+	//title: 'Turtlebot report',
+	//url: '',
 	author: {
-		name: 'Some name',
-		icon_url: 'https://i.imgur.com/AfFp7pu.png',
-		url: 'https://discord.js.org',
+		name: 'Turtlebot',
+		icon_url: 'https://avatars.torn.com/48X48_5e865e1c-2ab2-f5d7-2419133.jpg',
+		//url: 'https://discord.js.org',
 	},
-	description: 'Some description here',
+	//description: 'Some description here',
 	thumbnail: {
-		url: 'https://i.imgur.com/AfFp7pu.png',
+		//url: 'https://i.imgur.com/AfFp7pu.png',
 	},
 	fields: [
 		{
@@ -240,16 +241,16 @@ const exampleEmbed = {
 		},
 	],
 	image: {
-		url: 'https://i.imgur.com/AfFp7pu.png',
+		//url: 'https://i.imgur.com/AfFp7pu.png',
 	},
 	timestamp: new Date().toISOString(),
 	footer: {
-		text: 'Some footer text here',
-		icon_url: 'https://i.imgur.com/AfFp7pu.png',
+		//text: 'Some footer text here',
+		//icon_url: 'https://i.imgur.com/AfFp7pu.png',
 	},
 };
 
-channel.send({ embeds: [exampleEmbed] });
+channel.send({ embeds: [Embed1] });
 }
 
 
@@ -322,6 +323,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
