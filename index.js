@@ -26,6 +26,7 @@ let ocdata;
 let memberdata;
 let prevslackers;
 let prevmissers;
+let statusMessage = null; // Will hold the reference to the embed message
 
 
 const client = new Client({
@@ -292,7 +293,17 @@ const embed = {
 };
 
 // Assuming `channel` is a valid TextChannel
-channel.send({ embeds: [embed] });
+//channel.send({ embeds: [embed] });
+	if (!statusMessage || !statusMessage.editable) {
+  // Message doesn't exist or can't be edited — send a new one
+  statusMessage = await channel.send({ embeds: [embed] });
+  console.log('📤 Sent new status message');
+} else {
+  // Message exists — update it
+  await statusMessage.edit({ embeds: [embed] });
+  console.log('♻️ Updated existing status message');
+}
+
 
 //////////////////////////////////////////////////////////////////
 }
@@ -329,7 +340,9 @@ const job = new CronJob(
       }
 
       await fetchApiData();
-      await process1(channel);
+      //await process1(channel);
+	  await testEmbed(channel);
+
     } finally {
       jobRunning = false;
     }
@@ -372,6 +385,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
