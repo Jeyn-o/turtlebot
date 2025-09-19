@@ -121,7 +121,7 @@ function isEpochInNext24Hours(unixEpoch) {
 }
 
 function epochElapse(unixEpoch) {
-  const currentEpoch = Math.floor(Date.now() /1000); // now in seconds
+  const currentEpoch = Math.floor(Date.now()); // now in FULL epoch
   const elapse = currentEpoch - unixEpoch;
   return elapse;
 }
@@ -416,6 +416,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
