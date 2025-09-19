@@ -256,7 +256,7 @@ ocdata.crimes.forEach(crime => {
 console.log(`crime.ready_at: ${crime.ready_at}, elapse: ${elapse}`);
     delayedFields.push({
       name: `${crime.name}`,
-      value: `Delayed ${formatEpochDelta(elapse)} by: ${slackers.join(', ') || 'Unknown'}`,
+      value: `Delayed ${formatEpochDelta(crime.ready_at)} by: ${slackers.join(', ') || 'Unknown'}`,
     });
   }
 
@@ -294,7 +294,7 @@ console.log(`crime.ready_at: ${crime.ready_at}, elapse: ${elapse}`);
 
 console.log(`crime.ready_at: ${crime.ready_at}, elapse: ${elapse}`);
       missingFields.push({
-        name: `${crime.name} (${formatEpochDelta(elapse)})`,
+        name: `${crime.name} (${formatEpochDelta(crime.ready_at)})`,
         value: `Missing items: ${result}`,
       });
     }
@@ -417,6 +417,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
