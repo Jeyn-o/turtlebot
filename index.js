@@ -120,10 +120,40 @@ function isEpochInNext24Hours(unixEpoch) {
   return unixEpoch >= currentEpoch && unixEpoch <= next24hEpoch;
 }
 
+function epochElapse(unixEpoch) {
+  const currentEpoch = Math.floor(Date.now() /1000); // now in seconds
+  const elapse = currentEpoch - unixEpoch;
+  return elapse;
+}
+
 function getMemberName(id) {
   const member = memberdata.members.find(m => m.id === id);
   return member ? member.name : null; // or return "Not found"
 }
+
+function formatEpochDelta(unixEpoch) {
+  const currentEpoch = Math.floor(Date.now() / 1000);
+  let delta = unixEpoch - currentEpoch; // future = positive, past = negative
+  const isFuture = delta > 0;
+  delta = Math.abs(delta);
+
+  const days = Math.floor(delta / 86400);
+  const hours = Math.floor((delta % 86400) / 3600);
+  const minutes = Math.floor((delta % 3600) / 60);
+
+  let formatted;
+
+  if (days > 0) {
+    formatted = `${days} days ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  } else if (hours > 0) {
+    formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  } else {
+    formatted = `${minutes} m`;
+  }
+
+  return isFuture ? `${formatted} left` : `for ${formatted}`;
+}
+
 
 async function process1(channel = null) {
   if (!channel) return;
@@ -136,7 +166,7 @@ async function process1(channel = null) {
     // 1. Delayed crime
     if (isEpochInPast(crime.ready_at) && crime.executed_at === null) {
       issuesFound = true;
-
+		
       let slackers = [];
       crime.slots.forEach(member => {
         const name = getMemberName(member.user.id);
@@ -214,7 +244,7 @@ ocdata.crimes.forEach(crime => {
   // 1. Delayed crime
   if (isEpochInPast(crime.ready_at) && crime.executed_at === null) {
     issuesFound = true;
-
+    const elapse = epochElapse(crime.ready_at);
     let slackers = [];
     crime.slots.forEach(member => {
       const name = getMemberName(member.user.id);
@@ -226,7 +256,7 @@ ocdata.crimes.forEach(crime => {
 
     delayedFields.push({
       name: `${crime.name}`,
-      value: `Delayed by: ${slackers.join(', ') || 'Unknown'}`,
+      value: `Delayed ${formatEpochDelta(elapse)} by: ${slackers.join(', ') || 'Unknown'}`,
     });
   }
 
@@ -234,7 +264,8 @@ ocdata.crimes.forEach(crime => {
   if (isEpochInNext24Hours(crime.ready_at)) {
     let emptys = [];
     let emptysitems = [];
-
+	
+    const elapse = epochElapse(crime.ready_at);
     crime.slots.forEach(member => {
       if (
         member.item_requirement &&
@@ -262,7 +293,7 @@ ocdata.crimes.forEach(crime => {
       }
 
       missingFields.push({
-        name: `${crime.name}`,
+        name: `${crime.name} (${formatEpochDelta(elapse)})`,
         value: `Missing items: ${result}`,
       });
     }
@@ -385,6 +416,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
