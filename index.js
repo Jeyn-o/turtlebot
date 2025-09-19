@@ -253,7 +253,7 @@ ocdata.crimes.forEach(crime => {
         slackers.push(name);
       }
     });
-
+console.log(`crime.ready_at: ${crime.ready_at}, elapse: ${elapse}`);
     delayedFields.push({
       name: `${crime.name}`,
       value: `Delayed ${formatEpochDelta(elapse)} by: ${slackers.join(', ') || 'Unknown'}`,
@@ -292,6 +292,7 @@ ocdata.crimes.forEach(crime => {
         console.warn("OC item error: Array of users and items are unequal!");
       }
 
+console.log(`crime.ready_at: ${crime.ready_at}, elapse: ${elapse}`);
       missingFields.push({
         name: `${crime.name} (${formatEpochDelta(elapse)})`,
         value: `Missing items: ${result}`,
@@ -416,6 +417,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
