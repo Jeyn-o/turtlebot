@@ -144,15 +144,16 @@ function formatEpochDelta(unixEpoch) {
   let formatted;
 
   if (days > 0) {
-    formatted = `${days} days ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    formatted = `${days}d ${String(hours).padStart(2, '0')}h${String(minutes).padStart(2, '0')}m`;
   } else if (hours > 0) {
-    formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    formatted = `${String(hours).padStart(2, '0')}h${String(minutes).padStart(2, '0')}m`;
   } else {
-    formatted = `${minutes} m`;
+    formatted = `${minutes}m`;
   }
 
   return isFuture ? `${formatted} left` : `for ${formatted}`;
 }
+
 
 
 async function process1(channel = null) {
@@ -253,7 +254,6 @@ ocdata.crimes.forEach(crime => {
         slackers.push(name);
       }
     });
-console.log(`crime.ready_at: ${crime.ready_at}, elapse: ${elapse}`);
     delayedFields.push({
       name: `${crime.name}`,
       value: `Delayed ${formatEpochDelta(crime.ready_at)} by: ${slackers.join(', ') || 'Unknown'}`,
@@ -292,7 +292,6 @@ console.log(`crime.ready_at: ${crime.ready_at}, elapse: ${elapse}`);
         console.warn("OC item error: Array of users and items are unequal!");
       }
 
-console.log(`crime.ready_at: ${crime.ready_at}, elapse: ${elapse}`);
       missingFields.push({
         name: `${crime.name} (${formatEpochDelta(crime.ready_at)})`,
         value: `Missing items: ${result}`,
@@ -417,6 +416,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
