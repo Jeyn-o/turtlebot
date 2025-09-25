@@ -67,17 +67,19 @@ const itemidlist = {
 1431:  "Core Drill",
 1430:  "Shaped Charge",
 103 :  "Firewalk Virus",
-226 :  "Smoke Grenade"
+226 :  "Smoke Grenade",
+1012 : "Irradiated Blood Bag",
+1094 : "Syringe"
 };
 
 async function fetchApiData(message = null) {
   console.log('📡 fetchApiData() called');
 
   try {
-    const response1 = await fetch(`https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC&key=${apiKey}&comment=autoturtle`);
+    const response1 = await fetch(`https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC&key=${apiKey}&comment=Turtlebot`);
     const data1 = await response1.json();
 
-    const response2 = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${apiKey}&comment=autoturtle`);
+    const response2 = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${apiKey}&comment=Turtlebot`);
     const data2 = await response2.json();
 
 
@@ -416,6 +418,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.login(process.env.TOKEN);
+
 
 
 
