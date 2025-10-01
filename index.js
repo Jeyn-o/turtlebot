@@ -1,3 +1,5 @@
+// index.js
+
 console.log(`Bot starting. IS_PRIMARY: ${process.env.IS_PRIMARY}`);
 if (process.env.IS_PRIMARY !== 'true') {
   console.log('🔁 Not primary instance, exiting...');
@@ -16,19 +18,30 @@ app.listen(port, () => {
   console.log(`Web server running on port ${port}`);
 });
 
+// ------------ PING LIST SETUP --------------
+const fs = require('fs');
+const PING_FILE = './pinglist.json';
+let pingList = new Set();
 
+function loadPingList() {
+  try {
+    const data = fs.readFileSync(PING_FILE, 'utf-8');
+    pingList = new Set(JSON.parse(data));
+  } catch {
+    pingList = new Set();
+  }
+}
 
-const apiKey = process.env.API_KEY;
-const { Client, GatewayIntentBits } = require('discord.js');
+function savePingList() {
+  fs.writeFileSync(PING_FILE, JSON.stringify([...pingList]), 'utf-8');
+}
+
+loadPingList(); // Load on startup
+
+// ------------ DISCORD + CRON SETUP --------------
+const { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events } = require('discord.js');
 const { CronJob } = require('cron');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-let ocdata;
-let memberdata;
-let prevslackers;
-let prevmissers;
-let statusMessage = null; // Will hold the reference to the embed message
-
-
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -37,105 +50,15 @@ const client = new Client({
   ]
 });
 
-const itemidlist = {
-//Tools
-568 :  "Jemmy",
-1362:  "Net",
-1203:  "Lockpicks",
-1350:  "Police Badge",
-1383:  "DSLR Camera",
-1380:  "RF Detector",
-643 :  "Construction Helmet",
-1258:  "Binoculars",
-981 :  "Wire Cutters",
-159 :  "Bolt Cutters",
-1284:  "Dental Mirror",
-1080:  "Billfold",
-1331:  "Hand Drill",
-//Materials
-1361:  "Dog Treats",
-1381:  "ID Badge",
-1379:  "ATM Key",
-172 :  "Gasoline",
-201 :  "PCP",
-1429:  "Zip Ties",
-73  :  "Stealth Virus",
-856 :  "Spray Paint : Black",
-576 :  "Chloroform",
-222 :  "Flash Grenade",
-190 :  "C4 Explosive",
-1431:  "Core Drill",
-1430:  "Shaped Charge",
-103 :  "Firewalk Virus",
-226 :  "Smoke Grenade",
-1012 : "Irradiated Blood Bag",
-1094 : "Syringe"
-};
+const apiKey = process.env.API_KEY;
+let statusMessage = null;
+let ocdata = null;
+let memberdata = null;
 
-async function fetchApiData(message = null) {
-  console.log('📡 fetchApiData() called');
-
-  try {
-    const response1 = await fetch(`https://api.torn.com/v2/faction/crimes?cat=planning&offset=0&sort=DESC&key=${apiKey}&comment=Turtlebot`);
-    const data1 = await response1.json();
-
-    const response2 = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${apiKey}&comment=Turtlebot`);
-    const data2 = await response2.json();
-
-
-    if (data1.error) {
-      console.error('API error:', data1.error);
-      if (message) {
-        message.channel.send(`❌ API Error: ${data1.error}`);
-      }
-      return null;
-    }
-    if (data2.error) {
-      console.error('API error:', data2.error);
-      if (message) {
-        message.channel.send(`❌ API Error: ${data2.error}`);
-      }
-      return null;
-    }
-    ocdata=data1;
-    memberdata=data2;
-    return data1;
-
-  } catch (error) {
-    console.error('Error during API call:', error);
-    if (message) {
-      message.channel.send('❌ Failed to fetch data. Check logs.');
-    }
-    return null;
-  }
-}
-
-function isEpochInPast(unixEpoch) {
-  const currentEpoch = Math.floor(Date.now() / 1000); // current time in seconds
-  return unixEpoch < currentEpoch;
-}
-
-function isEpochInNext24Hours(unixEpoch) {
-  const currentEpoch = Math.floor(Date.now() / 1000); // current time in seconds
-  const next24hEpoch = currentEpoch + 24 * 60 * 60;   // 24 hours from now in seconds
-
-  return unixEpoch >= currentEpoch && unixEpoch <= next24hEpoch;
-}
-
-function epochElapse(unixEpoch) {
-  const currentEpoch = Math.floor(Date.now()); // now in FULL epoch
-  const elapse = currentEpoch - unixEpoch;
-  return elapse;
-}
-
-function getMemberName(id) {
-  const member = memberdata.members.find(m => m.id === id);
-  return member ? member.name : null; // or return "Not found"
-}
-
+// ------------ UTILITIES --------------
 function formatEpochDelta(unixEpoch) {
   const currentEpoch = Math.floor(Date.now() / 1000);
-  let delta = unixEpoch - currentEpoch; // future = positive, past = negative
+  let delta = unixEpoch - currentEpoch;
   const isFuture = delta > 0;
   delta = Math.abs(delta);
 
@@ -144,309 +67,155 @@ function formatEpochDelta(unixEpoch) {
   const minutes = Math.floor((delta % 3600) / 60);
 
   let formatted;
-
-  if (days > 0) {
-    formatted = `${days}d ${String(hours).padStart(2, '0')}h${String(minutes).padStart(2, '0')}m`;
-  } else if (hours > 0) {
-    formatted = `${String(hours).padStart(2, '0')}h${String(minutes).padStart(2, '0')}m`;
-  } else {
-    formatted = `${minutes}m`;
-  }
+  if (days > 0) formatted = `${days}d ${String(hours).padStart(2, '0')}h${String(minutes).padStart(2, '0')}m`;
+  else if (hours > 0) formatted = `${String(hours).padStart(2, '0')}h${String(minutes).padStart(2, '0')}m`;
+  else formatted = `${minutes}m`;
 
   return isFuture ? `${formatted} left` : `for ${formatted}`;
 }
 
+function isEpochInPast(epoch) {
+  return epoch < Math.floor(Date.now() / 1000);
+}
+function isEpochInNext24Hours(epoch) {
+  const now = Math.floor(Date.now() / 1000);
+  return epoch >= now && epoch <= now + 86400;
+}
 
+function getMemberName(id) {
+  const member = memberdata?.members?.find(m => m.id === id);
+  return member ? member.name : 'Unknown';
+}
 
-async function process1(channel = null) {
-  if (!channel) return;
+// ------------ API FETCH --------------
+async function fetchApiData() {
+  try {
+    const ocRes = await fetch(`https://api.torn.com/v2/faction/crimes?cat=planning&key=${apiKey}`);
+    const memberRes = await fetch(`https://api.torn.com/v2/faction/members?key=${apiKey}&striptags=true`);
 
-  const scanMsg = await channel.send(`🔍 Scanning for delayed or undersupplied OCs...`);
+    const ocJson = await ocRes.json();
+    const memberJson = await memberRes.json();
 
-  let issuesFound = false;
+    if (ocJson.error || memberJson.error) throw new Error('API returned an error');
+
+    ocdata = ocJson;
+    memberdata = memberJson;
+    return true;
+  } catch (err) {
+    console.error('❌ Error fetching API data:', err);
+    return false;
+  }
+}
+
+// ------------ EMBED UPDATE --------------
+async function updateEmbed(channel) {
+  const delayedFields = [];
+  const missingFields = [];
 
   ocdata.crimes.forEach(crime => {
-    // 1. Delayed crime
-    if (isEpochInPast(crime.ready_at) && crime.executed_at === null) {
-      issuesFound = true;
-		
-      let slackers = [];
-      crime.slots.forEach(member => {
-        const name = getMemberName(member.user.id);
-        const entry = memberdata.members.find(m => m.id === member.user.id);
-        if (entry.status.description !== "Okay") {
-          slackers.push(name);
-        }
+    if (isEpochInPast(crime.ready_at) && !crime.executed_at) {
+      const slackers = crime.slots
+        .filter(m => {
+          const user = memberdata.members.find(u => u.id === m.user.id);
+          return user?.status?.description !== 'Okay';
+        })
+        .map(m => getMemberName(m.user.id));
+
+      delayedFields.push({
+        name: crime.name,
+        value: `Delayed ${formatEpochDelta(crime.ready_at)} by: ${slackers.join(', ') || 'Unknown'}`,
       });
-      if(slackers==prevslackers) {
-        channel.send(`⏳ No change detected. **${crime.name}** is being delayed by: ${slackers.join(', ')}`);
-      } else {
-        channel.send(`⏳ **${crime.name}** is being delayed by: ${slackers.join(', ')}`);
-      }
-      prevslackers=slackers;
     }
 
-    // 2. Missing item requirement
     if (isEpochInNext24Hours(crime.ready_at)) {
-      let emptys = [];
-      let emptysitems = [];
-      crime.slots.forEach(member => {
-        if (
-          member.item_requirement &&
-          !member.item_requirement.is_available &&
-          member.user
-        ) {
-          emptys.push(member.user.id);
-          emptysitems.push(member.item_requirement.id);
-        }
-      });
-
-      if (emptys.length !== 0) {
-        issuesFound = true;
-
-        const names = emptys.map(id => {
-          const member = memberdata.members.find(m => m.id === id);
-          return member ? member.name : null;
+      const missing = crime.slots
+        .filter(m => m.item_requirement && !m.item_requirement.is_available)
+        .map(m => `${getMemberName(m.user.id)}: Item ${m.item_requirement.id}`);
+      if (missing.length)
+        missingFields.push({
+          name: `${crime.name} (${formatEpochDelta(crime.ready_at)})`,
+          value: `Missing items: ${missing.join(', ')}`,
         });
-        const namesitems = emptysitems.map(item => itemidlist[item] || item);
-
-        const result = names.map((name, index) => `${name}: ${namesitems[index]}`).join(', ');
-        
-        if(names.length!=namesitems.length) {console.warn("OC item error: Array of users and array of items of unequal length!")};
-        
-        if(names==prevmissers) {
-          channel.send(`📦 No change detected. **${crime.name}** has users with missing items: ${result}`);
-        } else {
-          channel.send(`📦 **${crime.name}** has users with missing items: ${result}`);
-        }
-        prevmissers=names;
-      }
     }
   });
 
-  // Final message handling
-  if (!issuesFound) {
-    await scanMsg.edit('✅ All OCs look good!');
+  const embed = {
+    color: 0x0099ff,
+    author: {
+      name: 'Turtlebot',
+      icon_url: 'https://avatars.torn.com/48X48_5e865e1c-2ab2-f5d7-2419133.jpg',
+    },
+    fields: [...delayedFields, ...missingFields],
+    timestamp: new Date().toISOString(),
+    footer: {
+      text: 'Turtlebot Status Report',
+    },
+  };
+
+  const buttonRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('ping_opt_in')
+      .setLabel('🔔 Ping Me on Updates')
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  const content = [...pingList].map(id => `<@${id}>`).join(' ') || 'No users opted in yet.';
+
+  if (!statusMessage || !statusMessage.editable) {
+    statusMessage = await channel.send({
+      content,
+      embeds: [embed],
+      components: [buttonRow]
+    });
   } else {
-    await scanMsg.delete(); // Remove the "Scanning..." message if alerts were sent
+    await statusMessage.edit({
+      content,
+      embeds: [embed],
+      components: [buttonRow]
+    });
   }
+
+  console.log(`📤 Embed updated at ${new Date().toISOString()}`);
 }
 
+// ------------ INTERACTION HANDLER --------------
+client.on(Events.InteractionCreate, async interaction => {
+  if (!interaction.isButton()) return;
 
-
-async function testEmbed(channel = null) {
-  if (!channel) return;
-//}
-//////////////////////////////////////////////////////////////////
-const delayedFields = [];
-const missingFields = [];
-let issuesFound = false;
-let newIssues = false;
-
-ocdata.crimes.forEach(crime => {
-  // 1. Delayed crime
-  if (isEpochInPast(crime.ready_at) && crime.executed_at === null) {
-    issuesFound = true;
-    const elapse = epochElapse(crime.ready_at);
-    let slackers = [];
-    crime.slots.forEach(member => {
-      const name = getMemberName(member.user.id);
-      const entry = memberdata.members.find(m => m.id === member.user.id);
-      if (entry && entry.status.description !== "Okay") {
-        slackers.push(name);
-      }
-    });
-    delayedFields.push({
-      name: `${crime.name}`,
-      value: `Delayed ${formatEpochDelta(crime.ready_at)} by: ${slackers.join(', ') || 'Unknown'}`,
-    });
-  }
-
-  // 2. Missing item requirement
-  if (isEpochInNext24Hours(crime.ready_at)) {
-    let emptys = [];
-    let emptysitems = [];
-	
-    const elapse = epochElapse(crime.ready_at);
-    crime.slots.forEach(member => {
-      if (
-        member.item_requirement &&
-        !member.item_requirement.is_available &&
-        member.user
-      ) {
-        emptys.push(member.user.id);
-        emptysitems.push(member.item_requirement.id);
-      }
-    });
-
-    if (emptys.length !== 0) {
-      issuesFound = true;
-
-      const names = emptys.map(id => {
-        const member = memberdata.members.find(m => m.id === id);
-        return member ? member.name : "Unknown";
+  if (interaction.customId === 'ping_opt_in') {
+    const userId = interaction.user.id;
+    if (pingList.has(userId)) {
+      await interaction.reply({
+        content: '❌ You are already subscribed to pings.',
+        ephemeral: true
       });
-
-      const namesitems = emptysitems.map(item => itemidlist[item] || item);
-      const result = names.map((name, index) => `${name}: ${namesitems[index]}`).join(', ');
-
-      if (names.length !== namesitems.length) {
-        console.warn("OC item error: Array of users and items are unequal!");
-      }
-
-      missingFields.push({
-        name: `${crime.name} (${formatEpochDelta(crime.ready_at)})`,
-        value: `Missing items: ${result}`,
+    } else {
+      pingList.add(userId);
+      savePingList();
+      await interaction.reply({
+        content: '✅ You have been added to the ping list!',
+        ephemeral: true
       });
     }
   }
 });
 
-// Compare serialized content to detect new issues (better than == for objects)
-/*if (
-  JSON.stringify(prev_delayed_crimes) === JSON.stringify(delayedFields) &&
-  JSON.stringify(prev_missing_items) === JSON.stringify(missingFields)
-) {
-  newIssues = false;
-} else {
-  newIssues = true;
-}*/
+// ------------ READY + CRON --------------
+client.once(Events.ClientReady, async () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  const guild = client.guilds.cache.first();
+  const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
+  if (!channel) return console.error('❌ Channel not found');
 
-const embed = {
-  color: 0x0099ff,
-  author: {
-    name: 'Turtlebot',
-    icon_url: 'https://avatars.torn.com/48X48_5e865e1c-2ab2-f5d7-2419133.jpg',
-  },
-  fields: [...delayedFields, ...missingFields],
-  timestamp: new Date().toISOString(),
-  footer: {
-    text: 'Turtlebot Status Report',
-  },
-};
-
-// Assuming `channel` is a valid TextChannel
-//channel.send({ embeds: [embed] });
-	if (!statusMessage || !statusMessage.editable) {
-  // Message doesn't exist or can't be edited — send a new one
-  statusMessage = await channel.send({ embeds: [embed] });
-  console.log('📤 Sent new status message');
-} else {
-  // Message exists — update it
-  await statusMessage.edit({ embeds: [embed] });
-  console.log('♻️ Updated existing status message');
-}
-
-
-//////////////////////////////////////////////////////////////////
-}
-
-
-
-
-
-
-
-	
-
-
-
-
-client.once('ready', () => {
-  console.log(`Logged in as ${client.user.tag}`);
-
-  let jobRunning = false;
-
-const job = new CronJob(
-  '*/10 * * * *',
-  async () => {
-    if (jobRunning) return;  // skip if still running
-    jobRunning = true;
-
-    try {
-      console.log('Running scheduled API call...');
-      const guild = client.guilds.cache.first();
-      const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-      if (!channel) {
-        console.error('Target channel not found!');
-        return;
-      }
-
-      await fetchApiData();
-      //await process1(channel);
-	  await testEmbed(channel);
-
-    } finally {
-      jobRunning = false;
+  const job = new CronJob('*/10 * * * *', async () => {
+    if (await fetchApiData()) {
+      await updateEmbed(channel);
     }
-  },
-  null,
-  true,
-  'UTC'
-);
-
+  });
 
   job.start();
+  console.log('🕒 Cron job started: Every 10 minutes');
 });
 
-
-// Listen for commands
-client.on('messageCreate', async (message) => {
-  if (message.author.bot) return;
-  if (message.content === '!manual') {
-    console.log('Manual command received');
-    const data = await fetchApiData();
-    await process1(message.channel); // ✅ explicitly call with correct channel
-
-    if (data) {
-      message.channel.send('✅ Manual API call done!');
-    }
-
-  }
-  if (message.content === '!reboot') {
-    console.log('Reboot command received');
-    message.channel.send('Rebooting...');
-    process.exit(0); // Triggers a container restart by crashing
-  }
-  if (message.content === '!test') {
-    console.log('Test command received');
-    message.channel.send('Sending test embed...');
-    await testEmbed(message.channel);
-  }
-
-});
-
-
+// ------------ LOGIN --------------
 client.login(process.env.TOKEN);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
