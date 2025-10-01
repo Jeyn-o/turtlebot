@@ -152,53 +152,89 @@ async function updateEmbed(channel) {
     },
   };
 
-  const buttonRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('ping_opt_in')
-      .setLabel('🔔 Ping Me on Updates')
-      .setStyle(ButtonStyle.Primary)
-  );
+ const buttonRow = new ActionRowBuilder().addComponents(
+  new ButtonBuilder()
+    .setCustomId('ping_opt_in')
+    .setLabel('🔔 Ping Me')
+    .setStyle(ButtonStyle.Success),
 
-  const content = [...pingList].map(id => `<@${id}>`).join(' ') || 'No users opted in yet.';
+  new ButtonBuilder()
+    .setCustomId('ping_opt_out')
+    .setLabel('🔕 Unsubscribe')
+    .setStyle(ButtonStyle.Danger)
+);
 
+
+  // Send or update the status message in the channel
   if (!statusMessage || !statusMessage.editable) {
     statusMessage = await channel.send({
-      content,
       embeds: [embed],
       components: [buttonRow]
     });
   } else {
     await statusMessage.edit({
-      content,
       embeds: [embed],
       components: [buttonRow]
     });
   }
 
   console.log(`📤 Embed updated at ${new Date().toISOString()}`);
+
+  // Send DMs to opted-in users
+  for (const userId of pingList) {
+    try {
+      const user = await client.users.fetch(userId);
+      await user.send({
+        content: '🔔 **Turtlebot Update**: There are new OC status changes.',
+        embeds: [embed]
+      });
+      console.log(`📨 DM sent to ${user.tag}`);
+    } catch (err) {
+      console.warn(`⚠️ Could not DM user ${userId}: ${err.message}`);
+    }
+  }
 }
 
+
 // ------------ INTERACTION HANDLER --------------
-client.on(Events.InteractionCreate, async interaction => {
+client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
+  const userId = interaction.user.id;
+
   if (interaction.customId === 'ping_opt_in') {
-    const userId = interaction.user.id;
     if (pingList.has(userId)) {
       await interaction.reply({
-        content: '❌ You are already subscribed to pings.',
+        content: '✅ You are already subscribed to pings.',
         ephemeral: true
       });
     } else {
       pingList.add(userId);
       savePingList();
       await interaction.reply({
-        content: '✅ You have been added to the ping list!',
+        content: '🔔 You’ve been added to the ping list!',
+        ephemeral: true
+      });
+    }
+  }
+
+  if (interaction.customId === 'ping_opt_out') {
+    if (!pingList.has(userId)) {
+      await interaction.reply({
+        content: 'ℹ️ You are not currently subscribed.',
+        ephemeral: true
+      });
+    } else {
+      pingList.delete(userId);
+      savePingList();
+      await interaction.reply({
+        content: '🔕 You’ve been removed from the ping list.',
         ephemeral: true
       });
     }
   }
 });
+
 
 // ------------ READY + CRON --------------
 client.once(Events.ClientReady, async () => {
@@ -219,3 +255,4 @@ client.once(Events.ClientReady, async () => {
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
