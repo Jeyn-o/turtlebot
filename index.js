@@ -54,6 +54,46 @@ const itemidlist = {
 70   : "Polymorphic Virus"
 };
 
+const functionCooldowns = new Map(); // key: function name, value: timestamp
+
+async function runWithCooldown(fn, name, cooldownMs, ...args) {
+  const now = Date.now();
+  const lastRun = functionCooldowns.get(name) || 0;
+
+  if (now - lastRun < cooldownMs) {
+    console.log(`⚠️ Function "${name}" is on cooldown.`);
+    return false; // function skipped
+  }
+
+  functionCooldowns.set(name, now);
+  return await fn(...args);
+}
+
+function formatDateTime(timezone = 'UTC') {
+  const now = new Date();
+
+  // Options for date and time parts
+  const options = {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  };
+
+  // Format parts individually
+  const parts = new Intl.DateTimeFormat('en-US', options).formatToParts(now);
+
+  const lookup = {};
+  for (const { type, value } of parts) {
+    lookup[type] = value;
+  }
+
+  return `${lookup.year}/${lookup.month}/${lookup.day} ${lookup.hour}:${lookup.minute}`;
+}
+
 // ------------ PING LIST SETUP --------------
 const fs = require('fs');
 const PING_FILE = './pinglist.json';
@@ -285,6 +325,14 @@ client.on('messageCreate', async (message) => {
   }
 
 
+  if (command === 'revives' || command === 'revive' || command === 'revs' || command === 'rev' || command === 'r') {
+    const guild = client.guilds.cache.first();
+    const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
+    if (!channel) return message.reply('Channel not found');
+
+    const success = await runWithCooldown(checkRevs, 'checkRevs', 60 * 1000, channel);
+    if(!success) message.reply('API cooldown, run once per minute tops');
+  }
 
   
   if (command === 'a' || command === 'alias') {
@@ -553,12 +601,87 @@ async function dailyTask(channel) {
   }
 }
 
+async function checkRevs(channel) {
+  console.log('Checking Revive Settings...');
+
+  try {
+    const response = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${process.env.API_KEY}`);
+    const data = await response.json();
+
+    if (data.error) {
+      console.error('API returned an error:', data.error);
+      return;
+    }
+
+    const members = data.members;
+
+    const greens = [];
+    const yellows = [];
+
+
+    members.forEach(member => {
+
+      if (member.revive_setting === "Everyone") {
+        greens.push(member.name);
+      }
+      if (member.revive_setting === "Friends & faction") {
+        yellows.push(member.name);
+      }
+
+    });
+
+    const fields = [];
+
+
+if (greens.length) {
+  fields.push({
+    name: `Revives enabled`,
+    value: greens
+      .map(name => `[${name}](https://www.torn.com/profiles.php?NID=${name})`)
+      .join('\n'),
+    inline: false
+  });
+}
+
+if (yellows.length) {
+  fields.push({
+    name: `Revives for Friends & faction`,
+    value: yellows
+      .map(name => `[${name}](https://www.torn.com/profiles.php?NID=${name})`)
+      .join('\n'),
+    inline: false
+  });
+}
+if (!greens.length && !yellows.length) {
+      fields.push({
+    name: `All revives disabled`,
+    value: `:)`,
+    inline: false
+  });
+}
+
+const timestamp = formatDateTime();
+
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Revive check ${timestamp}`)
+      .setColor(0x0099ff)
+      .setTimestamp()
+      .setFooter({ text: 'Revive Status Report' });
+
+    await channel.send({ embeds: [embed] });
+
+  } catch (err) {
+    console.error('Error fetching API data:', err);
+  }
+}
 
 
 
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
