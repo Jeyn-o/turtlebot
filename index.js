@@ -376,6 +376,7 @@ client.on('messageCreate', async (message) => {
 
 
 // ------------DAily summary ----------
+/*
 async function dailyTask(channel) {
   console.log('Running daily task at', new Date().toLocaleString());
 
@@ -453,13 +454,112 @@ async function dailyTask(channel) {
   } catch (err) {
     console.error('Error fetching API data:', err);
   }
+}*/
+const { EmbedBuilder } = require('discord.js');
+
+async function dailyTask(channel) {
+  console.log('Running daily task at', new Date().toLocaleString());
+
+  const targetPosition = 'baby';
+  const targetDays = 3;
+
+  try {
+    const response = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${process.env.API_KEY}`);
+    const data = await response.json();
+
+    if (data.error) {
+      console.error('API returned an error:', data.error);
+      return;
+    }
+
+    const members = data.members;
+
+    const positionMatches = [];
+    const notInOC = [];
+    const inFederalJail = [];
+    const offlineLong = [];
+
+    members.forEach(member => {
+      if (member.position.toLowerCase() === targetPosition.toLowerCase()) {
+        positionMatches.push(member.name);
+      }
+
+      if (!member.is_in_oc) {
+        notInOC.push(member.name);
+      }
+
+      if (member.status.state.toLowerCase() === 'federal') {
+        inFederalJail.push(member.name);
+      }
+
+      const match = member.last_action.relative.match(/(\d+)\s*days?/i);
+      if (match) {
+        const daysAgo = parseInt(match[1], 10);
+        if (daysAgo >= targetDays) {
+          offlineLong.push(member.name);
+        }
+      }
+    });
+
+    const fields = [];
+
+    if (positionMatches.length) {
+      fields.push({
+        name: `${targetPosition}'s: ${positionMatches.length}`,
+        value: `[Newsletter](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=newsletter) ${positionMatches.join(', ')}`,
+        inline: false
+      });
+    }
+
+    if (notInOC.length) {
+      fields.push({
+        name: `Not in OCs: ${notInOC.length}`,
+        value: `[Newsletter](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=newsletter) ${notInOC.join(', ')}`,
+        inline: false
+      });
+    }
+
+    if (inFederalJail.length) {
+      fields.push({
+        name: `Fedded: ${inFederalJail.length}`,
+        value: `[Members](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=members) ${inFederalJail.join(', ')}`,
+        inline: false
+      });
+    }
+
+    if (offlineLong.length) {
+      fields.push({
+        name: `Offline for ${targetDays} or more: ${offlineLong.length}`,
+        value: `[Members](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=members) ${offlineLong.join(', ')}`,
+        inline: false
+      });
+    }
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dayLabel = yesterday.toLocaleDateString(); // e.g., "11/3/2025"
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Daily Summary - End of Day ${dayLabel}`)
+      .setColor(0x0099ff)
+      .setTimestamp()
+      .setFooter({ text: 'Turtlebot Status Report' })
+      .addFields(fields.length ? fields : [{ name: 'All good', value: 'No issues today!' }]);
+
+    await channel.send({ embeds: [embed] });
+
+  } catch (err) {
+    console.error('Error fetching API data:', err);
+  }
 }
+
 
 
 
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
