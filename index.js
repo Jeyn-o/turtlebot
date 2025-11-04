@@ -276,6 +276,17 @@ client.on('messageCreate', async (message) => {
   const args = message.content.slice(prefix.length).trim().split(/\s+/);
   const command = args.shift().toLowerCase();
 
+  if (command === 'daily') {
+  const guild = client.guilds.cache.first(); // or use a specific guild ID
+  const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
+  if (!channel) return message.reply('❌ Channel not found');
+  await dailyTask(channel);
+  message.reply('Daily summary sent!');
+  }
+
+
+
+  
   if (command === 'a' || command === 'alias') {
     if (args.length === 0) {
       return message.reply('Missing IDs or names');
@@ -447,9 +458,9 @@ async function dailyTask(channel) {
 
 
 
-
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
