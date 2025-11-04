@@ -50,7 +50,8 @@ const itemidlist = {
 103 :  "Firewalk Virus",
 226 :  "Smoke Grenade",
 1012 : "Irradiated Blood Bag",
-1094 : "Syringe"
+1094 : "Syringe",
+70   : "Polymorphic Virus"
 };
 
 // ------------ PING LIST SETUP --------------
@@ -255,6 +256,14 @@ client.once(Events.ClientReady, async () => {
     }
   });
 
+//Daily summary
+  //const dailyJob = new CronJob('0 1 * * *', dailyTask, null, true, 'UTC'); 
+const dailyJob = new CronJob('0 1 * * *', () => dailyTask(channel), null, true, 'UTC');
+// Cron format: 'minute hour day-of-month month day-of-week'
+// Here: 0 8 * * * → 08:00 UTC daily
+
+
+  
   job.start();
   console.log('🕒 Cron job started: Every 10 minutes');
 });
@@ -269,7 +278,7 @@ client.on('messageCreate', async (message) => {
 
   if (command === 'a' || command === 'alias') {
     if (args.length === 0) {
-      return message.reply('⚠️ Missing IDs or names');
+      return message.reply('Missing IDs or names');
     }
 
     // --- Fetch JSON from GitHub ---
@@ -279,7 +288,7 @@ client.on('messageCreate', async (message) => {
       data = await response.json();
     } catch (err) {
       console.error(err);
-      return message.reply('❌ Failed to load data file.');
+      return message.reply('Failed to load data file.');
     }
 
     // --- Build lookup maps ---
@@ -336,7 +345,7 @@ client.on('messageCreate', async (message) => {
 
       // ✅ Format results
       if (partialMatches.length === 0) {
-        results.push(`❓ No match found for \`${key}\``);
+        results.push(`No match found for \`${key}\``);
       } else if (partialMatches.length === 1) {
         const { id, names } = partialMatches[0];
         results.push(`Closest match: ${id}: ${names.join(', ')}`);
@@ -355,10 +364,93 @@ client.on('messageCreate', async (message) => {
 });
 
 
+// ------------DAily summary ----------
+async function dailyTask(channel) {
+  console.log('Running daily task at', new Date().toLocaleString());
+
+  const targetPosition = 'baby';
+  const targetDays = 3;
+
+  try {
+    const response = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${process.env.API_KEY}`);
+    const data = await response.json();
+
+    if (data.error) {
+      console.error('API returned an error:', data.error);
+      return;
+    }
+
+    const members = data.members;
+
+    const positionMatches = [];
+    const notInOC = [];
+    const inFederalJail = [];
+    const offlineLong = [];
+
+    members.forEach(member => {
+      if (member.position.toLowerCase() === targetPosition.toLowerCase()) {
+        positionMatches.push(member.name);
+      }
+
+      if (!member.is_in_oc) {
+        notInOC.push(member.name);
+      }
+
+      if (member.status.state.toLowerCase() === 'federal') {
+        inFederalJail.push(member.name);
+      }
+
+        // Check if last_action.relative mentions days
+    const match = member.last_action.relative.match(/(\d+)\s*days?/i);
+    if (match) {
+      const daysAgo = parseInt(match[1], 10);
+      if (daysAgo >= targetDays) {
+        offlineLong.push(member.name);
+      }
+    }
+    });
+
+    const results = [];
+
+    if (positionMatches.length) {
+      results.push(`${targetPosition}s: ${positionMatches.length}\nNames: ${positionMatches.join(', ')}`);
+    }
+
+    if (notInOC.length) {
+      results.push(`Not in OC: ${notInOC.length}\nNames: ${notInOC.join(', ')}`);
+    }
+
+    if (inFederalJail.length) {
+      results.push(`Fedded: ${inFederalJail.length}\nNames: ${inFederalJail.join(', ')}`);
+    }
+
+    if (offlineLong.length) {
+      results.push(`Offline for ${targetDays} or more: ${offlineLong.length}\nNames: ${offlineLong.join(', ')}`);
+    }
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dayLabel = yesterday.toLocaleDateString(); // e.g., "11/3/2025"
+
+   if (results.length === 0) {
+      await channel.send(`End of Day ${dayLabel} \n--- Daily Summary ---\nAll good`);
+    } else {
+      const summaryMessage = results.join('\n\n');
+      await channel.send(`End of Day ${dayLabel} \n--- Daily Summary ---\n${summaryMessage}`);
+    }
+
+  } catch (err) {
+    console.error('Error fetching API data:', err);
+  }
+}
+
+
+
 
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
