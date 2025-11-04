@@ -54,20 +54,10 @@ const itemidlist = {
 70   : "Polymorphic Virus"
 };
 
-const functionCooldowns = new Map(); // key: function name, value: timestamp
 
-async function runWithCooldown(fn, name, cooldownMs, ...args) {
-  const now = Date.now();
-  const lastRun = functionCooldowns.get(name) || 0;
-
-  if (now - lastRun < cooldownMs) {
-    console.log(`⚠️ Function "${name}" is on cooldown.`);
-    return false; // function skipped
-  }
-
-  functionCooldowns.set(name, now);
-  return await fn(...args);
-}
+// Global variable to track last time checkRevs ran
+let lastCheckRevsTime = 0;
+const CHECK_REVS_COOLDOWN = 60 * 1000; // 60 seconds
 
 function formatDateTime(timezone = 'UTC') {
   const now = new Date();
@@ -330,8 +320,7 @@ client.on('messageCreate', async (message) => {
     const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
     if (!channel) return message.reply('Channel not found');
 
-    const success = await runWithCooldown(checkRevs, 'checkRevs', 60 * 1000, channel);
-    if(!success) message.reply('API cooldown, run once per minute tops');
+    checkRevs(channel);
   }
 
   
@@ -603,7 +592,19 @@ async function dailyTask(channel) {
 
 async function checkRevs(channel) {
   console.log('Checking Revive Settings...');
+    const now = Date.now();
 
+    // Check cooldown
+    if (now - lastCheckRevsTime < CHECK_REVS_COOLDOWN) {
+        const remaining = Math.ceil((CHECK_REVS_COOLDOWN - (now - lastCheckRevsTime)) / 1000);
+        channel.send(`Revive API is on cooldown. Try again in ${remaining}s.`);
+        return;
+    }
+
+    // Update last run time
+    lastCheckRevsTime = now;
+
+  
   try {
     const response = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${process.env.API_KEY}`);
     const data = await response.json();
@@ -681,6 +682,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
