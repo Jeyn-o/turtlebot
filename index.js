@@ -670,7 +670,7 @@ const timestamp = formatDateTime();
       .setColor(0x0099ff)
       .setTimestamp()
       .setFooter({ text: 'Revive Status Report' })
-      .addFields(fields.length ? fields);
+      .addFields(fields.length ? fields : []);
 
     await channel.send({ embeds: [embed] });
 
@@ -684,6 +684,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
