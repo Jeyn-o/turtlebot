@@ -600,20 +600,20 @@ async function checkRevs(channel) {
         channel.send(`Revive API is on cooldown. Try again in ${remaining}s.`);
         return;
     }
-
+    console.log('Cooldown OK. Making API call...');
     // Update last run time
     lastCheckRevsTime = now;
 
   
   try {
-    const response = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${process.env.API_KEY}`);
+    const response = await fetch(`https://api.torn.com/v2/faction/members?striptags=true&key=${apiKey}&comment=revCheck`);
     const data = await response.json();
 
     if (data.error) {
       console.error('API returned an error:', data.error);
       return;
     }
-
+    console.log('API threw no error. Parsing...');
     const members = data.members;
 
     const greens = [];
@@ -682,6 +682,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
