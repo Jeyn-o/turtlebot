@@ -604,7 +604,6 @@ async function checkRevs(channel) {
         channel.send(`Revive API is on cooldown. Try again in ${remaining}s.`);
         return;
     }
-    console.log('Cooldown OK. Making API call...');
     // Update last run time
     lastCheckRevsTime = now;
 
@@ -618,7 +617,6 @@ async function checkRevs(channel) {
       return;
     }
     
-    console.log('API threw no error. Parsing...');
     const members = data.members;
 
     const greens = [];
@@ -694,6 +692,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
