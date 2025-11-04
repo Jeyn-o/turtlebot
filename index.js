@@ -51,7 +51,8 @@ const itemidlist = {
 226 :  "Smoke Grenade",
 1012 : "Irradiated Blood Bag",
 1094 : "Syringe",
-70   : "Polymorphic Virus"
+70   : "Polymorphic Virus",
+71   : "Tunneling Virus"
 };
 
 
@@ -692,6 +693,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
