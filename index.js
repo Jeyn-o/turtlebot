@@ -590,7 +590,7 @@ async function dailyTask(channel) {
   }
 }
 
-async function checkRevs(channel) {
+/*async function checkRevs(channel) {
   console.log('Checking Revive Settings...');
     const now = Date.now();
 
@@ -677,13 +677,115 @@ const timestamp = formatDateTime();
   } catch (err) {
     console.error('Error fetching API data:', err);
   }
-}
+}*/
 
+
+async function checkRevs(channel) {
+  console.log('Checking Revive Settings...');
+  const now = Date.now();
+
+  // --- Cooldown check ---
+  if (now - lastCheckRevsTime < CHECK_REVS_COOLDOWN) {
+    const remaining = Math.ceil((CHECK_REVS_COOLDOWN - (now - lastCheckRevsTime)) / 1000);
+    channel.send(`⏳ Revive API is on cooldown. Try again in ${remaining}s.`);
+    return;
+  }
+
+  console.log('Cooldown OK. Making API call...');
+  lastCheckRevsTime = now; // update timestamp
+
+  try {
+    const response = await fetch(
+      `https://api.torn.com/v2/faction/members?striptags=true&key=${process.env.API_KEY}&comment=revCheck`
+    );
+    const data = await response.json();
+
+    if (data.error) {
+      console.error('API returned an error:', data.error);
+      return;
+    }
+
+    console.log('API threw no error. Parsing...');
+    const members = data.members;
+
+    const greens = [];
+    const yellows = [];
+
+    members.forEach(member => {
+      if (member.revive_setting === "Everyone") greens.push(member.name);
+      if (member.revive_setting === "Friends & faction") yellows.push(member.name);
+    });
+
+    // Helper: Split large lists into multiple fields safely
+    function chunkFieldEntries(title, items) {
+      const fields = [];
+      if (!items.length) return fields;
+
+      let currentChunk = [];
+      let currentLength = 0;
+      let index = 1;
+      const header = `**Summary:** ${items.length} member${items.length !== 1 ? 's' : ''}\n\n`;
+
+      for (const item of items) {
+        const line = `[${item}](https://www.torn.com/profiles.php?NID=${item})\n`;
+        if (currentLength + line.length > 900) { // leave buffer
+          fields.push({
+            name: `${title}${index > 1 ? ` (cont. ${index})` : ''}`,
+            value: header + currentChunk.join(''),
+            inline: false
+          });
+          index++;
+          currentChunk = [];
+          currentLength = 0;
+        }
+        currentChunk.push(line);
+        currentLength += line.length;
+      }
+
+      if (currentChunk.length) {
+        fields.push({
+          name: `${title}${index > 1 ? ` (cont. ${index})` : ''}`,
+          value: header + currentChunk.join(''),
+          inline: false
+        });
+      }
+
+      return fields;
+    }
+
+    const fields = [];
+    fields.push(...chunkFieldEntries('Revives enabled', greens));
+    fields.push(...chunkFieldEntries('Revives for Friends & faction', yellows));
+
+    if (!fields.length) {
+      fields.push({
+        name: 'All revives disabled',
+        value: ':)',
+        inline: false
+      });
+    }
+
+    const timestamp = formatDateTime();
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Revive check ${timestamp}`)
+      .setColor(0x0099ff)
+      .setTimestamp()
+      .setFooter({ text: 'Revive Status Report' })
+      .addFields(fields);
+
+    await channel.send({ embeds: [embed] });
+
+  } catch (err) {
+    console.error('❌ Error fetching API data:', err);
+  }
+}
 
 
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
