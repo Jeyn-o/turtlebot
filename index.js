@@ -613,6 +613,7 @@ async function checkRevs(channel) {
       console.error('API returned an error:', data.error);
       return;
     }
+    
     console.log('API threw no error. Parsing...');
     const members = data.members;
 
@@ -668,7 +669,8 @@ const timestamp = formatDateTime();
       .setTitle(`Revive check ${timestamp}`)
       .setColor(0x0099ff)
       .setTimestamp()
-      .setFooter({ text: 'Revive Status Report' });
+      .setFooter({ text: 'Revive Status Report' })
+      .addFields(fields.length ? fields);
 
     await channel.send({ embeds: [embed] });
 
@@ -682,6 +684,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
