@@ -18,6 +18,41 @@ app.listen(port, () => {
   console.log(`Web server running on port ${port}`);
 });
 
+const itemidlist = {
+//Tools
+568 :  "Jemmy",
+1362:  "Net",
+1203:  "Lockpicks",
+1350:  "Police Badge",
+1383:  "DSLR Camera",
+1380:  "RF Detector",
+643 :  "Construction Helmet",
+1258:  "Binoculars",
+981 :  "Wire Cutters",
+159 :  "Bolt Cutters",
+1284:  "Dental Mirror",
+1080:  "Billfold",
+1331:  "Hand Drill",
+//Materials
+1361:  "Dog Treats",
+1381:  "ID Badge",
+1379:  "ATM Key",
+172 :  "Gasoline",
+201 :  "PCP",
+1429:  "Zip Ties",
+73  :  "Stealth Virus",
+856 :  "Spray Paint : Black",
+576 :  "Chloroform",
+222 :  "Flash Grenade",
+190 :  "C4 Explosive",
+1431:  "Core Drill",
+1430:  "Shaped Charge",
+103 :  "Firewalk Virus",
+226 :  "Smoke Grenade",
+1012 : "Irradiated Blood Bag",
+1094 : "Syringe"
+};
+
 // ------------ PING LIST SETUP --------------
 const fs = require('fs');
 const PING_FILE = './pinglist.json';
@@ -127,7 +162,7 @@ async function updateEmbed(channel) {
       });
     }
 
-    if (isEpochInNext24Hours(crime.ready_at)) {
+    /*if (isEpochInNext24Hours(crime.ready_at)) {
       const missing = crime.slots
         .filter(m => m.item_requirement && !m.item_requirement.is_available)
         .map(m => `${getMemberName(m.user.id)}: Item ${m.item_requirement.id}`);
@@ -136,7 +171,24 @@ async function updateEmbed(channel) {
           name: `${crime.name} (${formatEpochDelta(crime.ready_at)})`,
           value: `Missing items: ${missing.join(', ')}`,
         });
-    }
+    }*/
+    if (isEpochInNext24Hours(crime.ready_at)) {
+  const missing = crime.slots
+    .filter(m => m.item_requirement && !m.item_requirement.is_available && m.user)
+    .map(m => {
+      const memberName = getMemberName(m.user.id);
+      const itemName = itemidlist[m.item_requirement.id] || m.item_requirement.id;
+      return `${memberName}: ${itemName}`;
+    });
+
+  if (missing.length) {
+    missingFields.push({
+      name: `${crime.name} (${formatEpochDelta(crime.ready_at)})`,
+      value: `Missing items: ${missing.join(', ')}`,
+    });
+  }
+}
+
   });
 
   const embed = {
@@ -307,5 +359,6 @@ client.on('messageCreate', async (message) => {
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
