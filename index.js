@@ -152,7 +152,7 @@ async function updateEmbed(channel) {
     },
   };
 
- const buttonRow = new ActionRowBuilder().addComponents(
+ /*const buttonRow = new ActionRowBuilder().addComponents(
   new ButtonBuilder()
     .setCustomId('ping_opt_in')
     .setLabel('🔔 Ping Me')
@@ -162,39 +162,24 @@ async function updateEmbed(channel) {
     .setCustomId('ping_opt_out')
     .setLabel('🔕 Unsubscribe')
     .setStyle(ButtonStyle.Danger)
-);
+);*/
 
 
   // Send or update the status message in the channel
   if (!statusMessage || !statusMessage.editable) {
     statusMessage = await channel.send({
       embeds: [embed],
-      components: [buttonRow]
+      components: []
     });
   } else {
     await statusMessage.edit({
       embeds: [embed],
-      components: [buttonRow]
+      components:[]
     });
   }
 
   console.log(`📤 Embed updated at ${new Date().toISOString()}`);
-
-  // Send DMs to opted-in users
-  for (const userId of pingList) {
-    try {
-      const user = await client.users.fetch(userId);
-      await user.send({
-        content: '🔔 **Turtlebot Update**: There are new OC status changes.',
-        embeds: [embed]
-      });
-      console.log(`📨 DM sent to ${user.tag}`);
-    } catch (err) {
-      console.warn(`⚠️ Could not DM user ${userId}: ${err.message}`);
-    }
-  }
-}
-
+} //WIP
 
 // ------------ INTERACTION HANDLER --------------
 client.on('interactionCreate', async interaction => {
@@ -202,37 +187,6 @@ client.on('interactionCreate', async interaction => {
 
   const userId = interaction.user.id;
 
-  if (interaction.customId === 'ping_opt_in') {
-    if (pingList.has(userId)) {
-      await interaction.reply({
-        content: '✅ You are already subscribed to pings.',
-        ephemeral: true
-      });
-    } else {
-      pingList.add(userId);
-      savePingList();
-      await interaction.reply({
-        content: '🔔 You’ve been added to the ping list!',
-        ephemeral: true
-      });
-    }
-  }
-
-  if (interaction.customId === 'ping_opt_out') {
-    if (!pingList.has(userId)) {
-      await interaction.reply({
-        content: 'ℹ️ You are not currently subscribed.',
-        ephemeral: true
-      });
-    } else {
-      pingList.delete(userId);
-      savePingList();
-      await interaction.reply({
-        content: '🔕 You’ve been removed from the ping list.',
-        ephemeral: true
-      });
-    }
-  }
 });
 
 
@@ -252,7 +206,106 @@ client.once(Events.ClientReady, async () => {
   job.start();
   console.log('🕒 Cron job started: Every 10 minutes');
 });
+  
+
+const prefix = '!';
+client.on('messageCreate', async (message) => {
+  if (!message.content.startsWith(prefix) || message.author.bot) return;
+
+  const args = message.content.slice(prefix.length).trim().split(/\s+/);
+  const command = args.shift().toLowerCase();
+
+  if (command === 'a' || command === 'alias') {
+    if (args.length === 0) {
+      return message.reply('⚠️ Missing IDs or names');
+    }
+
+    // --- Fetch JSON from GitHub ---
+    let data;
+    try {
+      const response = await fetch('https://raw.githubusercontent.com/Jeyn-o/OC_Stalker/refs/heads/main/BC_names.JSON');
+      data = await response.json();
+    } catch (err) {
+      console.error(err);
+      return message.reply('❌ Failed to load data file.');
+    }
+
+    // --- Build lookup maps ---
+    const idToNames = {};
+    const nameToId = new Map();
+
+    for (const [id, names] of Object.entries(data)) {
+      // Remove "Former Member"
+      const cleanNames = names.filter(name => name.toLowerCase() !== 'former member');
+      if (cleanNames.length === 0) continue;
+
+      idToNames[id] = cleanNames;
+
+      for (const name of cleanNames) {
+        nameToId.set(name.toLowerCase(), id);
+      }
+    }
+
+    // --- Process user inputs ---
+    const results = [];
+
+    for (const key of args) {
+      const lowerKey = key.toLowerCase();
+
+      // ✅ Exact ID match
+      if (idToNames[lowerKey]) {
+        const names = idToNames[lowerKey];
+        results.push(`${lowerKey}: ${names.join(', ')}`);
+        continue;
+      }
+
+      // ✅ Exact name match (case-insensitive)
+      if (nameToId.has(lowerKey)) {
+        const id = nameToId.get(lowerKey);
+        const names = idToNames[id];
+        results.push(`${id}: ${names.join(', ')}`);
+        continue;
+      }
+
+      // ✅ Case-insensitive partial match
+      const partialMatches = [];
+
+      for (const [id, names] of Object.entries(idToNames)) {
+        for (const name of names) {
+          if (name.toLowerCase().includes(lowerKey)) {
+            // Add this ID once (with all its aliases)
+            if (!partialMatches.find(pm => pm.id === id)) {
+              partialMatches.push({ id, names });
+            }
+            break;
+          }
+        }
+      }
+
+      // ✅ Format results
+      if (partialMatches.length === 0) {
+        results.push(`❓ No match found for \`${key}\``);
+      } else if (partialMatches.length === 1) {
+        const { id, names } = partialMatches[0];
+        results.push(`Closest match: ${id}: ${names.join(', ')}`);
+      } else {
+        const formatted = partialMatches
+          .map(pm => `${pm.id}: ${pm.names.join(', ')}`)
+          .join('\n');
+        results.push(`Closest matches:\n${formatted}`);
+      }
+    }
+
+    // --- Send formatted reply ---
+    const replyText = results.join('\n\n');
+    message.reply(replyText);
+  }
+});
+
+
+
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
