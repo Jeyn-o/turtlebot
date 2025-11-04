@@ -590,6 +590,10 @@ async function dailyTask(channel) {
   }
 }
 
+
+
+
+
 async function checkRevs(channel) {
   console.log('Checking Revive Settings...');
     const now = Date.now();
@@ -629,9 +633,13 @@ async function checkRevs(channel) {
       if (member.revive_setting === "Friends & faction") {
         yellows.push(member.name);
       }
+      
 
     });
 
+    greens.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    yellows.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    
     const fields = [];
 
 
@@ -686,6 +694,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
