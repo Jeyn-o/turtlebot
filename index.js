@@ -506,7 +506,7 @@ async function dailyTask(channel) {
     if (positionMatches.length) {
       fields.push({
         name: `${targetPosition}'s: ${positionMatches.length}`,
-        value: `[Newsletter](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=newsletter) ${positionMatches.join(', ')}`,
+        value: `[Send Newsletter](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=newsletter) - ${positionMatches.join(', ')}`,
         inline: false
       });
     }
@@ -514,7 +514,7 @@ async function dailyTask(channel) {
     if (notInOC.length) {
       fields.push({
         name: `Not in OCs: ${notInOC.length}`,
-        value: `[Newsletter](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=newsletter) ${notInOC.join(', ')}`,
+        value: `[Send Newsletter](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=newsletter&target=notInOC) - ${notInOC.join(', ')}`,
         inline: false
       });
     }
@@ -522,7 +522,7 @@ async function dailyTask(channel) {
     if (inFederalJail.length) {
       fields.push({
         name: `Fedded: ${inFederalJail.length}`,
-        value: `[Members](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=members) ${inFederalJail.join(', ')}`,
+        value: `[View Members](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=members) - ${inFederalJail.join(', ')}`,
         inline: false
       });
     }
@@ -530,7 +530,7 @@ async function dailyTask(channel) {
     if (offlineLong.length) {
       fields.push({
         name: `Offline for ${targetDays} or more: ${offlineLong.length}`,
-        value: `[Members](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=members) ${offlineLong.join(', ')}`,
+        value: `[View Members](https://www.torn.com/factions.php?step=your&type=1#/tab=controls&option=members) - ${offlineLong.join(', ')}`,
         inline: false
       });
     }
@@ -559,6 +559,7 @@ async function dailyTask(channel) {
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
