@@ -319,23 +319,33 @@ async function pollStocks(channel) {
   try {
     res = await fetch(`${STOCK_API_URL}&key=${getCurrentKey()}`);
   } catch (err) {
-    console.error('❌ Network error while polling stocks');
+    console.error('❌ Network error while polling stocks:', err.message);
     return;
   }
 
-  const data = await res.json();
-
-  if (data.error) {
-    handleApiError(data.error.code);
+  let data;
+  try {
+    data = await res.json();
+  } catch (err) {
+    console.error('❌ Failed to parse stock API response');
     return;
   }
 
-  const now = new Date();
-  const today = now.toDateString();
-  const week = `${now.getUTCFullYear()}-${now.getUTCMonth()}`;
+  if (!data || data.error) {
+    if (data?.error?.code) {
+      handleApiError(data.error.code);
+    } else {
+      console.error('❌ Invalid stock API response');
+    }
+    return;
+  }
 
+  const now = Date.now();
+  const today = new Date(now).toDateString();
+  const week = `${new Date(now).getUTCFullYear()}-${new Date(now).getUTCMonth()}`;
 
-    if (stockMemory._day !== today) {
+  // --- daily reset
+  if (stockMemory._day !== today) {
     for (const stock of Object.values(stockMemory.stocks)) {
       stock.dayLow = Infinity;
       stock.dayHigh = -Infinity;
@@ -343,21 +353,24 @@ async function pollStocks(channel) {
     stockMemory._day = today;
   }
 
-if (stockMemory._week !== week) {
-  for (const stock of Object.values(stockMemory.stocks)) {
-    stock.weekLow = Infinity;
-    stock.weekHigh = -Infinity;
+  // --- weekly reset
+  if (stockMemory._week !== week) {
+    for (const stock of Object.values(stockMemory.stocks)) {
+      stock.weekLow = Infinity;
+      stock.weekHigh = -Infinity;
+    }
+    stockMemory._week = week;
   }
-  stockMemory._week = week;
-}
-  
-  //const now = Date.now();
+
   let alertMessages = [];
 
   for (const stock of Object.values(data.stocks)) {
-    const id = stock.stock_id;
-    const price = stock.current_price;
+    const id = String(stock.stock_id);
+    const price = Number(stock.current_price);
 
+    if (!Number.isFinite(price)) continue;
+
+    // --- initialize memory
     if (!stockMemory.stocks[id]) {
       stockMemory.stocks[id] = {
         recent: [],
@@ -372,14 +385,13 @@ if (stockMemory._week !== week) {
 
     const mem = stockMemory.stocks[id];
 
-    // ---- recent prices (short-term memory)
+    // --- recent prices (bounded)
     mem.recent.push(price);
-    const MAX_RECENT = 120; // ~4 hours at 2-min polling
-    if (mem.recent.length > MAX_RECENT) {
+    if (mem.recent.length > 120) {
       mem.recent.shift();
     }
 
-    // ---- rolling lows & highs
+    // --- rolling ranges
     mem.dayLow = Math.min(mem.dayLow, price);
     mem.dayHigh = Math.max(mem.dayHigh, price);
 
@@ -389,23 +401,30 @@ if (stockMemory._week !== week) {
     mem.allTimeLow = Math.min(mem.allTimeLow, price);
     mem.allTimeHigh = Math.max(mem.allTimeHigh, price);
 
+    // (alerts intentionally disabled for now)
   }
 
+  stockMemory.lastUpdated = now;
 
-
-  
-stockMemory.lastUpdated = Date.now();
-
-  saveStockMemory();
+  try {
+    saveStockMemory();
+  } catch (err) {
+    console.error('❌ Failed to save stock memory:', err.message);
+  }
 
   if (alertMessages.length && channel) {
     for (const msg of alertMessages) {
-      await channel.send(msg);
+      try {
+        await channel.send(msg);
+      } catch (err) {
+        console.error('❌ Failed to send Discord message');
+      }
     }
   }
 
   console.log(`📈 Stock poll complete (${alertMessages.length} alerts)`);
 }
+
 
 // ------------ EMBED UPDATE --------------
 async function updateEmbed(channel) {
@@ -954,6 +973,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
