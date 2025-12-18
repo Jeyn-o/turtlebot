@@ -184,6 +184,66 @@ function getMemberName(id) {
   return member ? member.name : 'Unknown';
 }
 
+// ------------ GITHUB MEMORY --------------
+
+const GITHUB_API = 'https://api.github.com';
+
+async function loadStockMemoryFromGitHub() {
+  const url = `${GITHUB_API}/repos/${process.env.SO_GITHUB_OWNER}/${process.env.SO_GITHUB_REPO}/contents/${process.env.SO_GITHUB_PATH}`;
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${process.env.SO_GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json'
+    }
+  });
+
+  if (!res.ok) {
+    throw new Error(`GitHub load failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  const content = Buffer.from(data.content, 'base64').toString('utf8');
+
+  stockMemory = JSON.parse(content);
+  stockMemory._sha = data.sha; // needed for updates
+
+  console.log('📦 Stock memory loaded from GitHub');
+}
+
+// Save
+
+async function saveStockMemoryToGitHub() {
+  const url = `${GITHUB_API}/repos/${process.env.SO_GITHUB_OWNER}/${process.env.SO_GITHUB_REPO}/contents/${process.env.SO_GITHUB_PATH}`;
+
+  const body = {
+    message: `Update stock memory (${new Date().toISOString()})`,
+    content: Buffer.from(JSON.stringify(stockMemory, null, 2)).toString('base64'),
+    sha: stockMemory._sha
+  };
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${process.env.SO_GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GitHub save failed: ${res.status} ${text}`);
+  }
+
+  const data = await res.json();
+  stockMemory._sha = data.content.sha;
+
+  console.log('💾 Stock memory saved to GitHub');
+}
+
+
 // ------------ API FETCH --------------
 async function fetchApiData() {
   try {
@@ -425,7 +485,22 @@ client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
   // Load stock memory on startup
-  loadStockMemory();
+  //loadStockMemory();
+  try {
+    await loadStockMemoryFromGitHub();
+  } catch (err) {
+    console.error('❌ Failed to load GitHub memory, starting fresh');
+    stockMemory = { stocks: {}, lastUpdated: 0, lastAlert: {} };
+  }
+
+  //Periodically save to github memory file
+  setInterval(() => {
+    saveStockMemoryToGitHub().catch(err =>
+      console.error('❌ GitHub save error:', err.message)
+    );
+  }, 10 * 60 * 1000); // every 10 minutes
+
+
 
   const guild = client.guilds.cache.first();
   const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
@@ -852,6 +927,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
