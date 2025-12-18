@@ -330,42 +330,72 @@ async function pollStocks(channel) {
     return;
   }
 
-  const now = Date.now();
+  const now = new Date();
+  const today = now.toDateString();
+  const week = `${now.getUTCFullYear()}-${now.getUTCMonth()}`;
+
+
+    if (stockMemory._day !== today) {
+    for (const stock of Object.values(stockMemory.stocks)) {
+      stock.dayLow = Infinity;
+      stock.dayHigh = -Infinity;
+    }
+    stockMemory._day = today;
+  }
+
+if (stockMemory._week !== week) {
+  for (const stock of Object.values(stockMemory.stocks)) {
+    stock.weekLow = Infinity;
+    stock.weekHigh = -Infinity;
+  }
+  stockMemory._week = week;
+}
+  
+  //const now = Date.now();
   let alertMessages = [];
 
   for (const stock of Object.values(data.stocks)) {
     const id = stock.stock_id;
     const price = stock.current_price;
 
-    if (!stockMemory.stocks[id]) stockMemory.stocks[id] = [];
-
-    // Store price history as simple array of numbers
-    stockMemory.stocks[id].push(price);
-
-    // Keep only the last MAX_HISTORY entries to limit file size
-    const MAX_HISTORY = 100;
-    stockMemory.stocks[id] = stockMemory.stocks[id].slice(-MAX_HISTORY);
-
-
-
-    //const prices = stockMemory.stocks[id].map(p => p.price); //replaced object with array
-    const prices = stockMemory.stocks[id]; // already numbers
-    if (prices.length < 10) continue; // not enough data yet
-
-    const min = Math.min(...prices);
-    const max = Math.max(...prices);
-
-    const nearLow = price <= min * 1.02;
-    const nearHigh = price >= max * 0.98;
-
-    if (nearLow) {
-      alertMessages.push(`🟢 **BUY** ${stock.name} (${stock.acronym}) @ $${price.toFixed(2)} (near 14d low)`);
-    } else if (nearHigh) {
-      alertMessages.push(`🔴 **SELL** ${stock.name} (${stock.acronym}) @ $${price.toFixed(2)} (near 14d high)`);
+    if (!stockMemory.stocks[id]) {
+      stockMemory.stocks[id] = {
+        recent: [],
+        dayLow: price,
+        dayHigh: price,
+        weekLow: price,
+        weekHigh: price,
+        allTimeLow: price,
+        allTimeHigh: price
+      };
     }
+
+    const mem = stockMemory.stocks[id];
+
+    // ---- recent prices (short-term memory)
+    mem.recent.push(price);
+    const MAX_RECENT = 120; // ~4 hours at 2-min polling
+    if (mem.recent.length > MAX_RECENT) {
+      mem.recent.shift();
+    }
+
+    // ---- rolling lows & highs
+    mem.dayLow = Math.min(mem.dayLow, price);
+    mem.dayHigh = Math.max(mem.dayHigh, price);
+
+    mem.weekLow = Math.min(mem.weekLow, price);
+    mem.weekHigh = Math.max(mem.weekHigh, price);
+
+    mem.allTimeLow = Math.min(mem.allTimeLow, price);
+    mem.allTimeHigh = Math.max(mem.allTimeHigh, price);
+
   }
 
-  stockMemory.lastUpdated = now;
+
+
+  
+stockMemory.lastUpdated = Date.now();
+
   saveStockMemory();
 
   if (alertMessages.length && channel) {
@@ -924,6 +954,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
