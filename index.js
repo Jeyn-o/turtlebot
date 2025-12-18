@@ -337,21 +337,16 @@ async function pollStocks(channel) {
     const id = stock.stock_id;
     const price = stock.current_price;
 
-    if (!stockMemory.stocks[id]) {
-      stockMemory.stocks[id] = [];
-    }
+    if (!stockMemory.stocks[id]) stockMemory.stocks[id] = [];
 
-    // Store price history
-    /*stockMemory.stocks[id].push({
-      //time: now, //reduce bloat
-      price
-    });*/
-    stockMemory.stocks[id].push(price); //Store in array instead of object
+    // Store price history as simple array of numbers
+    stockMemory.stocks[id].push(price);
 
-    // Trim old history
-    stockMemory.stocks[id] = stockMemory.stocks[id].filter(
-      p => now - p.time <= LONG_TERM_WINDOW
-    );
+    // Keep only the last MAX_HISTORY entries to limit file size
+    const MAX_HISTORY = 100;
+    stockMemory.stocks[id] = stockMemory.stocks[id].slice(-MAX_HISTORY);
+
+
 
     //const prices = stockMemory.stocks[id].map(p => p.price); //replaced object with array
     const prices = stockMemory.stocks[id]; // already numbers
@@ -929,6 +924,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
