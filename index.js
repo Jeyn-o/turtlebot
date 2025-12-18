@@ -342,17 +342,19 @@ async function pollStocks(channel) {
     }
 
     // Store price history
-    stockMemory.stocks[id].push({
+    /*stockMemory.stocks[id].push({
       //time: now, //reduce bloat
       price
-    });
+    });*/
+    stockMemory.stocks[id].push(price); //Store in array instead of object
 
     // Trim old history
     stockMemory.stocks[id] = stockMemory.stocks[id].filter(
       p => now - p.time <= LONG_TERM_WINDOW
     );
 
-    const prices = stockMemory.stocks[id].map(p => p.price);
+    //const prices = stockMemory.stocks[id].map(p => p.price); //replaced object with array
+    const prices = stockMemory.stocks[id]; // already numbers
     if (prices.length < 10) continue; // not enough data yet
 
     const min = Math.min(...prices);
@@ -927,6 +929,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
