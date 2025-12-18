@@ -122,6 +122,36 @@ let statusMessage = null;
 let ocdata = null;
 let memberdata = null;
 
+// ------------ STOCK OBSERVER SETUP --------------
+const STOCK_MEMORY_FILE = './stocks-memory.json';
+
+let stockMemory = {
+  stocks: {}, // stock_id -> history[]
+  lastUpdated: 0
+};
+
+function loadStockMemory() {
+  try {
+    stockMemory = JSON.parse(fs.readFileSync(STOCK_MEMORY_FILE, 'utf8'));
+    console.log('📈 Stock memory loaded');
+  } catch {
+    console.log('📈 No stock memory found, starting fresh');
+  }
+}
+
+function saveStockMemory() {
+  try {
+    fs.writeFileSync(
+      STOCK_MEMORY_FILE,
+      JSON.stringify(stockMemory, null, 2),
+      'utf8'
+    );
+  } catch (err) {
+    console.error('❌ Failed to save stock memory:', err.message);
+  }
+}
+
+
 // ------------ UTILITIES --------------
 function formatEpochDelta(unixEpoch) {
   const currentEpoch = Math.floor(Date.now() / 1000);
@@ -172,6 +202,122 @@ async function fetchApiData() {
     console.error('❌ Error fetching API data:', err);
     return false;
   }
+}
+
+// -------------- API STOCKS --------------
+// Key cycling
+
+// ------------ STOCK API KEY MANAGEMENT --------------
+
+const STOCK_API_KEYS = [
+  'XCTem1vDIUoiigYb', //Jeyno, limited
+  'MBGUyhoLEuiT6BBa'  //Meeip, public
+].filter(Boolean); // remove undefined
+
+let currentKeyIndex = 0;
+
+function getCurrentKey() {
+  return STOCK_API_KEYS[currentKeyIndex];
+}
+
+function rotateKey() {
+  currentKeyIndex = (currentKeyIndex + 1) % STOCK_API_KEYS.length;
+  console.warn(`🔁 Rotated stock API key (index ${currentKeyIndex})`);
+}
+
+function handleApiError(code) {
+  console.error(`⚠️ Stock API error code: ${code}`);
+
+  // Key-related errors → rotate key
+  if ([2, 5, 8, 10, 13, 14, 18].includes(code)) {
+    rotateKey();
+    return;
+  }
+
+  // Temporary errors → skip this cycle
+  if ([12, 15, 17, 24].includes(code)) {
+    console.warn('⏭ Temporary API error, skipping this cycle');
+    return;
+  }
+
+  // Everything else → unexpected, log only
+  console.error('❌ Unexpected API error');
+}
+
+
+// Stock fetching
+
+const STOCK_API_URL = 'https://api.torn.com/v2/torn?selections=stocks';
+
+const STOCK_POLL_INTERVAL = 2 * 60 * 1000; // 2 minutes
+const LONG_TERM_WINDOW = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+async function pollStocks(channel) {
+  console.log('📊 Polling stock market...');
+
+  let res;
+  try {
+    res = await fetch(`${STOCK_API_URL}&key=${getCurrentKey()}`);
+  } catch (err) {
+    console.error('❌ Network error while polling stocks');
+    return;
+  }
+
+  const data = await res.json();
+
+  if (data.error) {
+    handleApiError(data.error.code);
+    return;
+  }
+
+  const now = Date.now();
+  let alertMessages = [];
+
+  for (const stock of Object.values(data.stocks)) {
+    const id = stock.stock_id;
+    const price = stock.current_price;
+
+    if (!stockMemory.stocks[id]) {
+      stockMemory.stocks[id] = [];
+    }
+
+    // Store price history
+    stockMemory.stocks[id].push({
+      time: now,
+      price
+    });
+
+    // Trim old history
+    stockMemory.stocks[id] = stockMemory.stocks[id].filter(
+      p => now - p.time <= LONG_TERM_WINDOW
+    );
+
+    const prices = stockMemory.stocks[id].map(p => p.price);
+    if (prices.length < 10) continue; // not enough data yet
+
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+
+    const nearLow = price <= min * 1.02;
+    const nearHigh = price >= max * 0.98;
+
+    if (nearLow) {
+      alertMessages.push(`🟢 **BUY** ${stock.name} (${stock.acronym}) @ $${price.toFixed(2)} (near 14d low)`);
+    } else if (nearHigh) {
+      alertMessages.push(`🔴 **SELL** ${stock.name} (${stock.acronym}) @ $${price.toFixed(2)} (near 14d high)`);
+    }
+  }
+
+  stockMemory.lastUpdated = now;
+  saveStockMemory();
+
+  if (alertMessages.length && channel) {
+    for (const msg of alertMessages) {
+      await channel.send(msg);
+    }
+  }
+
+  console.log(`📈 Stock poll complete (${alertMessages.length} alerts)`);
 }
 
 // ------------ EMBED UPDATE --------------
@@ -277,6 +423,10 @@ client.on('interactionCreate', async interaction => {
 // ------------ READY + CRON --------------
 client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
+
+  // Load stock memory on startup
+  loadStockMemory();
+
   const guild = client.guilds.cache.first();
   const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
   if (!channel) return console.error('❌ Channel not found');
@@ -289,15 +439,24 @@ client.once(Events.ClientReady, async () => {
 
 //Daily summary
   //const dailyJob = new CronJob('0 1 * * *', dailyTask, null, true, 'UTC'); 
-const dailyJob = new CronJob('0 1 * * *', () => dailyTask(channel), null, true, 'UTC');
+  const dailyJob = new CronJob(
+    '0 1 * * *',
+    () => dailyTask(channel),
+    null,
+    true,
+    'UTC'
+  );
 // Cron format: 'minute hour day-of-month month day-of-week'
 // Here: 0 8 * * * → 08:00 UTC daily
 
-
-  
   job.start();
   console.log('🕒 Cron job started: Every 10 minutes');
+
+  // 📊 Stock observer (runs alongside the bot)
+  setInterval(() => pollStocks(channel), STOCK_POLL_INTERVAL);
+  console.log('📈 Stock observer started: every 2 minutes');
 });
+
   
 
 const prefix = '!';
@@ -693,6 +852,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
