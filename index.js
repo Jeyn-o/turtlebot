@@ -311,7 +311,6 @@ const STOCK_API_URL = 'https://api.torn.com/v2/torn?selections=stocks';
 
 const STOCK_POLL_INTERVAL = 2 * 60 * 1000; // 2 minutes
 const LONG_TERM_WINDOW = 14 * 24 * 60 * 60 * 1000; // 14 days
-
 async function pollStocks(channel) {
   console.log('📊 Polling stock market...');
 
@@ -362,7 +361,10 @@ async function pollStocks(channel) {
     stockMemory._week = week;
   }
 
-  let alertMessages = [];
+  // --- alert arrays
+  const buy = [];
+  const sell = [];
+  const hold = [];
 
   for (const stock of Object.values(data.stocks)) {
     const id = String(stock.stock_id);
@@ -387,9 +389,7 @@ async function pollStocks(channel) {
 
     // --- recent prices (bounded)
     mem.recent.push(price);
-    if (mem.recent.length > 120) {
-      mem.recent.shift();
-    }
+    if (mem.recent.length > 120) mem.recent.shift();
 
     // --- rolling ranges
     mem.dayLow = Math.min(mem.dayLow, price);
@@ -401,7 +401,17 @@ async function pollStocks(channel) {
     mem.allTimeLow = Math.min(mem.allTimeLow, price);
     mem.allTimeHigh = Math.max(mem.allTimeHigh, price);
 
-    // (alerts intentionally disabled for now)
+    // --- determine BUY / SELL / HOLD
+    const nearDayLow = price <= mem.dayLow * 1.02;
+    const nearDayHigh = price >= mem.dayHigh * 0.98;
+
+    if (nearDayLow) {
+      buy.push(`• **${stock.acronym}** @ $${price.toFixed(2)} (near daily low)`);
+    } else if (nearDayHigh) {
+      sell.push(`• **${stock.acronym}** @ $${price.toFixed(2)} (near daily high)`);
+    } else {
+      hold.push(`• ${stock.acronym} – stable`);
+    }
   }
 
   stockMemory.lastUpdated = now;
@@ -412,18 +422,34 @@ async function pollStocks(channel) {
     console.error('❌ Failed to save stock memory:', err.message);
   }
 
-  if (alertMessages.length && channel) {
-    for (const msg of alertMessages) {
+  // --- assemble single Discord message
+  if (channel) {
+    const sections = [];
+
+    if (buy.length) sections.push(`🟢 **BUY**\n${buy.join('\n')}`);
+    if (sell.length) sections.push(`🔴 **SELL**\n${sell.join('\n')}`);
+    if (hold.length)
+      sections.push(`⚪ **HOLD**\n${hold.join('\n')}\n_(HOLD items may be hidden later)_`);
+
+    if (sections.length) {
+      const message =
+        `📊 **Stock Market Update**\n\n` +
+        sections.join('\n\n') +
+        `\n\n⏱ Updated: ${new Date(now).toUTCString()}`;
+
       try {
-        await channel.send(msg);
+        await channel.send(message);
       } catch (err) {
-        console.error('❌ Failed to send Discord message');
+        console.error('❌ Failed to send Discord message:', err.message);
       }
     }
   }
 
-  console.log(`📈 Stock poll complete (${alertMessages.length} alerts)`);
+  console.log(
+    `📈 Stock poll complete (BUY: ${buy.length}, SELL: ${sell.length}, HOLD: ${hold.length})`
+  );
 }
+
 
 
 // ------------ EMBED UPDATE --------------
@@ -973,6 +999,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
