@@ -343,7 +343,7 @@ async function pollStocks(channel) {
 
     // Store price history
     stockMemory.stocks[id].push({
-      time: now,
+      //time: now, //reduce bloat
       price
     });
 
@@ -927,6 +927,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
