@@ -366,6 +366,11 @@ async function pollStocks(channel) {
   const sell = [];
   const hold = [];
 
+  // --- CONFIG (safe defaults)
+  const BUY_ZONE = 0.10;      // bottom 10% of daily range
+  const SELL_ZONE = 0.10;     // top 10% of daily range
+  const SELL_FEE_OFFSET = 0; // % fee placeholder (e.g. 0.03 = 3%)
+
   for (const stock of Object.values(data.stocks)) {
     const id = String(stock.stock_id);
     const price = Number(stock.current_price);
@@ -401,14 +406,27 @@ async function pollStocks(channel) {
     mem.allTimeLow = Math.min(mem.allTimeLow, price);
     mem.allTimeHigh = Math.max(mem.allTimeHigh, price);
 
-    // --- determine BUY / SELL / HOLD
-    const nearDayLow = price <= mem.dayLow * 1.02;
-    const nearDayHigh = price >= mem.dayHigh * 0.98;
+    // --- decision logic (range-based, not % from low)
+    const dayRange = mem.dayHigh - mem.dayLow;
 
-    if (nearDayLow) {
-      buy.push(`• **${stock.acronym}** @ $${price.toFixed(2)} (near daily low)`);
-    } else if (nearDayHigh) {
-      sell.push(`• **${stock.acronym}** @ $${price.toFixed(2)} (near daily high)`);
+    // If the stock hasn't moved today, do nothing
+    if (dayRange <= 0) {
+      hold.push(`• ${stock.acronym} – flat`);
+      continue;
+    }
+
+    const buyThreshold = mem.dayLow + dayRange * BUY_ZONE;
+    const sellThreshold =
+      mem.dayHigh - dayRange * SELL_ZONE + (price * SELL_FEE_OFFSET);
+
+    if (price <= buyThreshold) {
+      buy.push(
+        `• **${stock.acronym}** @ $${price.toFixed(2)} (near daily low)`
+      );
+    } else if (price >= sellThreshold) {
+      sell.push(
+        `• **${stock.acronym}** @ $${price.toFixed(2)} (near daily high)`
+      );
     } else {
       hold.push(`• ${stock.acronym} – stable`);
     }
@@ -429,7 +447,9 @@ async function pollStocks(channel) {
     if (buy.length) sections.push(`🟢 **BUY**\n${buy.join('\n')}`);
     if (sell.length) sections.push(`🔴 **SELL**\n${sell.join('\n')}`);
     if (hold.length)
-      sections.push(`⚪ **HOLD**\n${hold.join('\n')}\n_(HOLD items may be hidden later)_`);
+      sections.push(
+        `⚪ **HOLD**\n${hold.join('\n')}\n_(HOLD items may be hidden later)_`
+      );
 
     if (sections.length) {
       const message =
@@ -449,6 +469,7 @@ async function pollStocks(channel) {
     `📈 Stock poll complete (BUY: ${buy.length}, SELL: ${sell.length}, HOLD: ${hold.length})`
   );
 }
+
 
 
 
@@ -999,6 +1020,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
