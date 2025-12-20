@@ -592,6 +592,7 @@ client.on('interactionCreate', async interaction => {
 
 
 // ------------ READY + CRON --------------
+console.log('Attempting to initialize...');
 (Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
@@ -1040,6 +1041,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
