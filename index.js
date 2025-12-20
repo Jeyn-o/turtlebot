@@ -446,7 +446,7 @@ async function pollStocks(channel) {
 
     if (buy.length) sections.push(`🟢 **BUY**\n${buy.join('\n')}`);
     if (sell.length) sections.push(`🔴 **SELL**\n${sell.join('\n')}`);
-    if (hold.length)
+    if (hold.length && false)
       sections.push(
         `⚪ **HOLD**\n${hold.join('\n')}\n_(HOLD items may be hidden later)_`
       );
@@ -1020,6 +1020,7 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
