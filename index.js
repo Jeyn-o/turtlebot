@@ -85,16 +85,6 @@ function formatDateTime(timezone = 'UTC') {
   return `${lookup.year}/${lookup.month}/${lookup.day} ${lookup.hour}:${lookup.minute}`;
 }
 
-// Stock market setup
-// ------------ STOCK ALERT TUNING --------------
-
-const MIN_SAMPLES = 20;                // ~40 minutes of data
-const ALERT_COOLDOWN = 60 * 60 * 1000;  // 1 hour
-const BUY_ZONE = 0.15;                 // bottom 15% of daily range
-const SELL_ZONE = 0.85;                // top 15% of daily range
-
-
-
 // ------------ PING LIST SETUP --------------
 const fs = require('fs');
 const PING_FILE = './pinglist.json';
@@ -411,46 +401,17 @@ async function pollStocks(channel) {
     mem.allTimeLow = Math.min(mem.allTimeLow, price);
     mem.allTimeHigh = Math.max(mem.allTimeHigh, price);
 
-    // --- determine BUY / SELL / HOLD (improved)
+    // --- determine BUY / SELL / HOLD
+    const nearDayLow = price <= mem.dayLow * 1.02;
+    const nearDayHigh = price >= mem.dayHigh * 0.98;
 
-    if (mem.recent.length < MIN_SAMPLES) {
-    hold.push(`• ${stock.acronym} – gathering data`);
-      continue;
-    }
-
-    // Position within today's range (0 = low, 1 = high)
-    const dayRange = mem.dayHigh - mem.dayLow;
-    const position =
-      dayRange > 0 ? (price - mem.dayLow) / dayRange : 0.5;
-
-    // Simple short-term trend check
-    const recent = mem.recent.slice(-5);
-    const trend =
-      recent.length >= 2
-        ? recent[recent.length - 1] - recent[0]
-        : 0;
-
-    // Alert cooldown logic
-    const last = stockMemory.lastAlert[id] || {};
-    const canAlert =
-      !last.type || now - (last.time || 0) > ALERT_COOLDOWN;
-
-    if (position <= BUY_ZONE && trend >= 0 && canAlert) {
-      buy.push(
-        `• **${stock.acronym}** @ $${price.toFixed(2)} (near daily low)`
-      );
-      stockMemory.lastAlert[id] = { type: 'buy', time: now };
-
-    } else if (position >= SELL_ZONE && trend <= 0 && canAlert) {
-      sell.push(
-        `• **${stock.acronym}** @ $${price.toFixed(2)} (near daily high)`
-      );
-      stockMemory.lastAlert[id] = { type: 'sell', time: now };
-
+    if (nearDayLow) {
+      buy.push(`• **${stock.acronym}** @ $${price.toFixed(2)} (near daily low)`);
+    } else if (nearDayHigh) {
+      sell.push(`• **${stock.acronym}** @ $${price.toFixed(2)} (near daily high)`);
     } else {
       hold.push(`• ${stock.acronym} – stable`);
     }
-
   }
 
   stockMemory.lastUpdated = now;
@@ -592,19 +553,16 @@ client.on('interactionCreate', async interaction => {
 
 
 // ------------ READY + CRON --------------
-console.log('Attempting to initialize...');
-(Events.ClientReady, async () => {
+client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
   // Load stock memory on startup
   //loadStockMemory();
   try {
     await loadStockMemoryFromGitHub();
-    stockMemory.lastAlert ??= {};
   } catch (err) {
     console.error('❌ Failed to load GitHub memory, starting fresh');
     stockMemory = { stocks: {}, lastUpdated: 0, lastAlert: {} };
-    stockMemory.lastAlert ??= {};
   }
 
   //Periodically save to github memory file
@@ -1041,9 +999,6 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
-
-
-
 
 
 
