@@ -122,6 +122,27 @@ let statusMessage = null;
 let ocdata = null;
 let memberdata = null;
 
+// ------------------- VERIFICATION HANDLER -------------------
+/**
+ * Parses a string to verify the user.
+ * @param {string} rawName - The username string to verify
+ * @returns { { username: string, UID: string } | null } 
+ *          Returns null if not verified
+ */
+function verifyUser(rawName) {
+  // Match "USERNAME [1234567]" with optional extra text after the ]
+  const match = rawName.match(/^(.+?)\s*\[(\d+)]/);
+  if (!match) {
+    // Not verified
+    return null;
+  }
+
+  const username = match[1].trim(); // USERNAME part
+  const UID = match[2].trim();      // 1234567 part
+
+  return { username, UID };
+}
+
 // ------------ STOCK OBSERVER SETUP --------------
 const STOCK_MEMORY_FILE = './stocks-memory.json';
 
@@ -149,6 +170,56 @@ function saveStockMemory() {
   } catch (err) {
     console.error('❌ Failed to save stock memory:', err.message);
   }
+}
+
+// user stocks handling
+
+async function loadUserStocksFromGitHub() {
+  const url = `https://api.github.com/repos/${process.env.SO_GITHUB_OWNER}/${process.env.SO_GITHUB_REPO}/contents/${USER_STOCKS_FILE}`;
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${process.env.SO_GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json'
+    }
+  });
+
+  if (!res.ok) throw new Error(`GitHub load failed: ${res.status}`);
+
+  const data = await res.json();
+  const content = Buffer.from(data.content, 'base64').toString('utf8');
+
+  const userStocks = JSON.parse(content);
+  userStocks._sha = data.sha; // keep SHA for updates
+  return userStocks;
+}
+
+async function saveUserStocksToGitHub(userStocks) {
+  const url = `https://api.github.com/repos/${process.env.SO_GITHUB_OWNER}/${process.env.SO_GITHUB_REPO}/contents/${USER_STOCKS_FILE}`;
+
+  const body = {
+    message: `Update user stocks (${new Date().toISOString()})`,
+    content: Buffer.from(JSON.stringify(userStocks, null, 2)).toString('base64'),
+    sha: userStocks._sha
+  };
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${process.env.SO_GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GitHub save failed: ${res.status} ${text}`);
+  }
+
+  const data = await res.json();
+  userStocks._sha = data.content.sha; // update SHA
 }
 
 
@@ -452,17 +523,27 @@ async function pollStocks(channel) {
       );
 
     if (sections.length) {
-      const message =
-        `📊 **Stock Market Update**\n\n` +
-        sections.join('\n\n') +
-        `\n\n⏱ Updated: ${new Date(now).toUTCString()}`;
+	  const message =
+		`📊 **Stock Market Update**\n\n` +
+		sections.join('\n\n') +
+		`\n\n⏱ Updated: ${new Date(now).toUTCString()}`;
 
-      try {
-        await channel.send(message);
-      } catch (err) {
-        console.error('❌ Failed to send Discord message:', err.message);
-      }
-    }
+	  try {
+		await channel.send(message);
+
+		// === USER SELL NOTIFICATIONS ===
+		try {
+		  let userStocks = await loadUserStocksFromGitHub();
+		  await notifyUsersForSell(userStocks, data.stocks, channel, 0); // offset = 0 for now
+		} catch (err) {
+		  console.error('❌ Failed to send user sell notifications:', err.message);
+		}
+
+	  } catch (err) {
+		console.error('❌ Failed to send Discord message:', err.message);
+	  }
+	}
+
   }
 
   console.log(
@@ -471,6 +552,46 @@ async function pollStocks(channel) {
 }
 
 
+async function notifyUsersForSell(userStocks, currentStocks, channel, offset = 0) {
+  // Map current stock prices for easy lookup
+  const stockMap = {};
+  for (const stock of Object.values(currentStocks)) {
+    stockMap[stock.acronym] = Number(stock.current_price);
+  }
+
+  // Iterate over each user
+  for (const username in userStocks) {
+    const userStockList = userStocks[username];
+
+    if (!userStockList || userStockList.length === 0) continue;
+
+    for (const entry of userStockList) {
+      const { stock, value: buyPrice } = entry;
+      const currentPrice = stockMap[stock];
+      if (currentPrice === undefined) continue; // stock not in API data
+
+      // Apply offset logic (for market fee etc)
+      const adjustedSellPrice = buyPrice + offset;
+
+      if (currentPrice >= adjustedSellPrice) {
+        try {
+          const member = channel.guild.members.cache.find(
+            m => `${m.displayName}`.includes(username)
+          );
+          if (!member) continue; // user not in guild
+
+          await channel.send(
+            `📢 Hey ${member}, your stock **${stock}** bought at $${buyPrice.toFixed(
+              2
+            )} is now $${currentPrice.toFixed(2)} — might be a good time to sell!`
+          );
+        } catch (err) {
+          console.error(`Failed to notify ${username} for stock ${stock}:`, err.message);
+        }
+      }
+    }
+  }
+}
 
 
 // ------------ EMBED UPDATE --------------
@@ -634,6 +755,8 @@ client.on('messageCreate', async (message) => {
   const args = message.content.slice(prefix.length).trim().split(/\s+/);
   const command = args.shift().toLowerCase();
 
+
+  //manual daily report
   if (command === 'daily') {
   const guild = client.guilds.cache.first(); // or use a specific guild ID
   const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
@@ -642,7 +765,7 @@ client.on('messageCreate', async (message) => {
   message.reply('Daily summary sent!');
   }
 
-
+  //check all user revive status
   if (command === 'revives' || command === 'revive' || command === 'revs' || command === 'rev' || command === 'r') {
     const guild = client.guilds.cache.first();
     const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
@@ -651,6 +774,55 @@ client.on('messageCreate', async (message) => {
     checkRevs(channel);
   }
 
+  // -------- STOCK COMMANDS --------
+  if (command === 'stock') {
+    if (args.length === 0) return message.reply('Usage: !stock buy/sell/clear <stock> [price]');
+
+    const action = args.shift().toLowerCase(); // buy / sell / clear
+    const rawUsername = `${message.member.displayName}`; // Or message.author.username if preferred
+
+    // Verify username
+    const verified = verifyUser(rawUsername);
+    if (!verified) return message.reply('❌ You are not verified. Your name must be in the format USERNAME [1234567]');
+
+    const username = `${verified.username} [${verified.UID}]`;
+
+    switch (action) {
+      case 'buy':
+        if (args.length < 2) return message.reply('Usage: !stock buy <stock> <price>');
+        const buyStock = args[0].toUpperCase();
+        const buyPrice = parseFloat(args[1]);
+        if (isNaN(buyPrice)) return message.reply('❌ Price must be a number.');
+        handleStockAction('buy', username, buyStock, buyPrice);
+        message.reply(`✅ Recorded buy: ${buyStock} @ $${buyPrice.toFixed(2)}`);
+        break;
+
+      case 'sell':
+        if (args.length < 1) return message.reply('Usage: !stock sell <stock>');
+        const sellStock = args[0].toUpperCase();
+        handleStockAction('sell', username, sellStock);
+        message.reply(`✅ Recorded sell: ${sellStock}`);
+        break;
+
+      case 'clear':
+        handleStockAction('clear', username);
+        message.reply('✅ Cleared all your stocks.');
+        break;
+
+      default:
+        message.reply('❌ Unknown stock action. Use buy, sell, or clear.');
+    }
+  }
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   if (command === 'a' || command === 'alias') {
     if (args.length === 0) {
@@ -1013,14 +1185,72 @@ const timestamp = formatDateTime();
   }
 }
 
+// ------------------- STOCK ACTION HANDLER -------------------
+const USER_STOCKS_FILE = './user-stocks.json';
 
+/**
+ * Handles user stock actions: buy, sell, clear
+ * @param {string} type - "buy" | "sell" | "clear"
+ * @param {string} username - verified username (e.g., "Alice [1234567]")
+ * @param {string} [stock] - stock symbol (required for buy/sell)
+ * @param {number} [value] - price (required for buy)
+ */
+function handleStockAction(type, username, stock, value) {
+  // Load current storage
+  let data = {};
+  try {
+    data = JSON.parse(fs.readFileSync(USER_STOCKS_FILE, 'utf-8'));
+  } catch {
+    data = {}; // File doesn't exist yet
+  }
+
+  // Ensure user entry exists
+  if (!data[username]) data[username] = [];
+
+  switch (type) {
+    case 'buy':
+      if (!stock || typeof value !== 'number') {
+        console.error('BUY action requires stock symbol and price.');
+        return;
+      }
+      // Add the stock purchase
+      data[username].push({ stock, value });
+      break;
+
+    case 'sell':
+      if (!stock) {
+        console.error('SELL action requires stock symbol.');
+        return;
+      }
+      // Remove matching stock entries (all matches)
+      data[username] = data[username].filter(s => s.stock !== stock);
+      break;
+
+    case 'clear':
+      // Remove all entries for this user
+      data[username] = [];
+      break;
+
+    default:
+      console.error(`Unknown stock action type: ${type}`);
+      return;
+  }
+
+  // Save updated storage
+  try {
+    //fs.writeFileSync(USER_STOCKS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    await saveUserStocksToGitHub(userStocks);
+    console.log(`Stock action processed: ${type} for ${username}${stock ? ` (${stock})` : ''}`);
+  } catch (err) {
+    console.error('Failed to save user stocks:', err.message);
+  }
+}
 
 
 
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
-
 
 
 
