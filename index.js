@@ -793,19 +793,19 @@ client.on('messageCreate', async (message) => {
         const buyStock = args[0].toUpperCase();
         const buyPrice = parseFloat(args[1]);
         if (isNaN(buyPrice)) return message.reply('❌ Price must be a number.');
-        handleStockAction('buy', username, buyStock, buyPrice);
+        await handleStockAction('buy', username, buyStock, buyPrice);
         message.reply(`✅ Recorded buy: ${buyStock} @ $${buyPrice.toFixed(2)}`);
         break;
 
       case 'sell':
         if (args.length < 1) return message.reply('Usage: !stock sell <stock>');
         const sellStock = args[0].toUpperCase();
-        handleStockAction('sell', username, sellStock);
+        await handleStockAction('sell', username, sellStock);
         message.reply(`✅ Recorded sell: ${sellStock}`);
         break;
 
       case 'clear':
-        handleStockAction('clear', username);
+        await handleStockAction('clear', username);
         message.reply('✅ Cleared all your stocks.');
         break;
 
@@ -1195,7 +1195,7 @@ const USER_STOCKS_FILE = './user-stocks.json';
  * @param {string} [stock] - stock symbol (required for buy/sell)
  * @param {number} [value] - price (required for buy)
  */
-function handleStockAction(type, username, stock, value) {
+async function handleStockAction(type, username, stock, value) {
   // Load current storage
   let data = {};
   try {
@@ -1236,13 +1236,14 @@ function handleStockAction(type, username, stock, value) {
       return;
   }
 
-  // Save updated storage
+  // Save updated storage to GitHub
   try {
-    //fs.writeFileSync(USER_STOCKS_FILE, JSON.stringify(data, null, 2), 'utf-8');
-    await saveUserStocksToGitHub(userStocks);
-    console.log(`Stock action processed: ${type} for ${username}${stock ? ` (${stock})` : ''}`);
+    await saveUserStocksToGitHub(data);
+    console.log(
+      `Stock action processed: ${type} for ${username}${stock ? ` (${stock})` : ''}`
+    );
   } catch (err) {
-    console.error('Failed to save user stocks:', err.message);
+    console.error('❌ Failed to save user stocks:', err.message);
   }
 }
 
@@ -1251,6 +1252,7 @@ function handleStockAction(type, username, stock, value) {
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
