@@ -465,7 +465,7 @@ async function pollStocks(channel) {
 
     // --- recent prices (bounded)
     mem.recent.push(price);
-    if (mem.recent.length > 120) mem.recent.shift();
+    if (mem.recent.length > 720) mem.recent.shift();
 
     // --- rolling ranges
     mem.dayLow = Math.min(mem.dayLow, price);
@@ -1268,6 +1268,7 @@ async function handleStockAction(type, username, stock, value) {
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
