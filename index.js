@@ -490,17 +490,33 @@ async function pollStocks(channel) {
     const sellThreshold =
       mem.dayHigh - dayRange * SELL_ZONE + (price * SELL_FEE_OFFSET);
 
-    if (price <= buyThreshold) {
-      buy.push(
-        `• **${stock.acronym}** @ $${price.toFixed(2)} (near daily low)`
-      );
-    } else if (price >= sellThreshold) {
-      sell.push(
-        `• **${stock.acronym}** @ $${price.toFixed(2)} (near daily high)`
-      );
-    } else {
-      hold.push(`• ${stock.acronym} – stable`);
-    }
+    // --- recent price analysis for stabilization
+	const RECENT_WINDOW = 6; // last ~12 minutes (6*2min polls)
+	const recentSlice = mem.recent.slice(-RECENT_WINDOW);
+
+	// lowest recent price
+	const recentLow = Math.min(...recentSlice);
+
+	// simple average of recent prices
+	const avgRecent =
+      recentSlice.reduce((a, b) => a + b, 0) / recentSlice.length;
+
+	// --- BUY / SELL / HOLD logic with stabilization
+	const isStabilizing = price >= recentLow; // price has stopped falling
+	const hasBounce = price >= avgRecent;    // slight upward trend
+
+	if (price <= buyThreshold && isStabilizing && hasBounce) {
+	  buy.push(
+		`• **${stock.acronym}** @ $${price.toFixed(2)} (low + stabilizing)`
+	  );
+	} else if (price >= sellThreshold) {
+	  sell.push(
+		`• **${stock.acronym}** @ $${price.toFixed(2)} (near daily high)`
+	  );
+	} else {
+	  hold.push(`• ${stock.acronym} – stable`);
+	}
+
   }
 
   stockMemory.lastUpdated = now;
@@ -1252,7 +1268,6 @@ async function handleStockAction(type, username, stock, value) {
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
-
 
 
 
