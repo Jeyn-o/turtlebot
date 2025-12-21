@@ -1196,12 +1196,14 @@ const USER_STOCKS_FILE = './user-stocks.json';
  * @param {number} [value] - price (required for buy)
  */
 async function handleStockAction(type, username, stock, value) {
-  // Load current storage
-  let data = {};
+  let data;
+
+  // 🔹 Load from GitHub (REQUIRED so we get _sha)
   try {
-    data = JSON.parse(fs.readFileSync(USER_STOCKS_FILE, 'utf-8'));
-  } catch {
-    data = {}; // File doesn't exist yet
+    data = await loadUserStocksFromGitHub();
+  } catch (err) {
+    console.warn('⚠️ Failed to load user stocks from GitHub, starting fresh');
+    data = {};
   }
 
   // Ensure user entry exists
@@ -1213,7 +1215,6 @@ async function handleStockAction(type, username, stock, value) {
         console.error('BUY action requires stock symbol and price.');
         return;
       }
-      // Add the stock purchase
       data[username].push({ stock, value });
       break;
 
@@ -1222,12 +1223,10 @@ async function handleStockAction(type, username, stock, value) {
         console.error('SELL action requires stock symbol.');
         return;
       }
-      // Remove matching stock entries (all matches)
       data[username] = data[username].filter(s => s.stock !== stock);
       break;
 
     case 'clear':
-      // Remove all entries for this user
       data[username] = [];
       break;
 
@@ -1236,11 +1235,11 @@ async function handleStockAction(type, username, stock, value) {
       return;
   }
 
-  // Save updated storage to GitHub
+  // 🔹 Save back to GitHub (now includes _sha)
   try {
     await saveUserStocksToGitHub(data);
     console.log(
-      `Stock action processed: ${type} for ${username}${stock ? ` (${stock})` : ''}`
+      `📘 Stock action saved: ${type} for ${username}${stock ? ` (${stock})` : ''}`
     );
   } catch (err) {
     console.error('❌ Failed to save user stocks:', err.message);
@@ -1250,8 +1249,10 @@ async function handleStockAction(type, username, stock, value) {
 
 
 
+
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
