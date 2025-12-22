@@ -440,7 +440,7 @@ async function pollStocks(channel) {
   // --- CONFIG (safe defaults)
   const BUY_ZONE = 0.10;      // bottom 10% of daily range
   const SELL_ZONE = 0.10;     // top 10% of daily range
-  const SELL_FEE_OFFSET = 0; // % fee placeholder (e.g. 0.03 = 3%)
+  const SELL_FEE_OFFSET = 0.001; // % fee placeholder (e.g. 0.03 = 3%)
 
   for (const stock of Object.values(data.stocks)) {
     const id = String(stock.stock_id);
@@ -1268,6 +1268,7 @@ async function handleStockAction(type, username, stock, value) {
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
