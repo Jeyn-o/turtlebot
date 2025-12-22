@@ -284,13 +284,18 @@ async function loadStockMemoryFromGitHub() {
 
 // Save
 
-async function saveStockMemoryToGitHub() {
+async function saveStockMemoryToGitHub({ retry = false } = {}) {
   const url = `${GITHUB_API}/repos/${process.env.SO_GITHUB_OWNER}/${process.env.SO_GITHUB_REPO}/contents/${process.env.SO_GITHUB_PATH}`;
+
+  // 🔑 ALWAYS get the latest SHA right before saving
+  const latestSha = await getLatestGitHubFileSha();
 
   const body = {
     message: `Update stock memory (${new Date().toISOString()})`,
-    content: Buffer.from(JSON.stringify(stockMemory, null, 2)).toString('base64'),
-    sha: stockMemory._sha
+    content: Buffer.from(
+      JSON.stringify(stockMemory, null, 2)
+    ).toString('base64'),
+    sha: latestSha
   };
 
   const res = await fetch(url, {
@@ -302,6 +307,12 @@ async function saveStockMemoryToGitHub() {
     },
     body: JSON.stringify(body)
   });
+
+  // 🔁 Retry once on conflict
+  if (res.status === 409 && !retry) {
+    console.warn('⚠️ SHA conflict detected, retrying with newest SHA...');
+    return saveStockMemoryToGitHub({ retry: true });
+  }
 
   if (!res.ok) {
     const text = await res.text();
@@ -1268,6 +1279,7 @@ async function handleStockAction(type, username, stock, value) {
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
