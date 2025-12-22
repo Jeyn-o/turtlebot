@@ -255,6 +255,32 @@ function getMemberName(id) {
   return member ? member.name : 'Unknown';
 }
 
+async function getLatestGitHubFileSha(filePath) {
+  if (!filePath) {
+    throw new Error('filePath is required');
+  }
+
+  const url = `${GITHUB_API}/repos/${process.env.SO_GITHUB_OWNER}/${process.env.SO_GITHUB_REPO}/contents/${filePath}`;
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${process.env.SO_GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json'
+    }
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `GitHub fetch failed for ${filePath}: ${res.status} ${text}`
+    );
+  }
+
+  const data = await res.json();
+  return data.sha;
+}
+
+
 // ------------ GITHUB MEMORY --------------
 
 const GITHUB_API = 'https://api.github.com';
@@ -285,10 +311,10 @@ async function loadStockMemoryFromGitHub() {
 // Save
 
 async function saveStockMemoryToGitHub({ retry = false } = {}) {
-  const url = `${GITHUB_API}/repos/${process.env.SO_GITHUB_OWNER}/${process.env.SO_GITHUB_REPO}/contents/${process.env.SO_GITHUB_PATH}`;
+  const filePath = process.env.SO_GITHUB_PATH;
+  const url = `${GITHUB_API}/repos/${process.env.SO_GITHUB_OWNER}/${process.env.SO_GITHUB_REPO}/contents/${filePath}`;
 
-  // 🔑 ALWAYS get the latest SHA right before saving
-  const latestSha = await getLatestGitHubFileSha();
+  const latestSha = await getLatestGitHubFileSha(filePath);
 
   const body = {
     message: `Update stock memory (${new Date().toISOString()})`,
@@ -308,9 +334,8 @@ async function saveStockMemoryToGitHub({ retry = false } = {}) {
     body: JSON.stringify(body)
   });
 
-  // 🔁 Retry once on conflict
   if (res.status === 409 && !retry) {
-    console.warn('⚠️ SHA conflict detected, retrying with newest SHA...');
+    console.warn('⚠️ SHA conflict detected, retrying...');
     return saveStockMemoryToGitHub({ retry: true });
   }
 
@@ -1279,6 +1304,7 @@ async function handleStockAction(type, username, stock, value) {
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
+
 
 
 
