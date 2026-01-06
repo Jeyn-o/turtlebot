@@ -1227,9 +1227,25 @@ client.on('messageCreate', async (message) => {
     const replyText = results.join('\n\n');
     message.reply(replyText);
   }
+
+  //SHUTDOWN BOT
+  if (command === 'exit') {
+	  await client.destroy();
+	  process.exit(0);
+  }
+  
+  //KILL BOT
+  if (command === 'kill') {
+	  process.exit(0);
+  }
+  
+
+
+	
 });
 
 // #################################
 // LOGIN (run last)
 // #################################
 client.login(process.env.TOKEN);
+
