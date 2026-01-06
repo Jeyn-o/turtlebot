@@ -1229,3 +1229,7 @@ client.on('messageCreate', async (message) => {
   }
 });
 
+// #################################
+// LOGIN (run last)
+// #################################
+client.login(process.env.TOKEN);
