@@ -278,8 +278,11 @@ client.on('interactionCreate', async interaction => {
 client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
-  const channelId = process.env.CHANNEL_ID;
-
+  //const channelId = process.env.CHANNEL_ID;
+  const channelId = '1552072156337147904';
+  console.log("channelId:");
+  console.log(channelId);
+  
   if (!channelId) {
     return console.error('❌ CHANNEL_ID is not configured');
   }
