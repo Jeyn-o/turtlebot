@@ -307,7 +307,7 @@ client.once(Events.ClientReady, async () => {
   } catch (error) {
     console.error('❌ Failed to fetch Discord channel:', error);
   }
-});
+// }); TODO is this the wrong one?
 
 //Daily summary
   //const dailyJob = new CronJob('0 1 * * *', dailyTask, null, true, 'UTC'); 
@@ -319,7 +319,7 @@ const dailyJob = new CronJob('0 1 * * *', () => dailyTask(channel), null, true, 
   
   job.start();
   console.log('🕒 Cron job started: Every 10 minutes');
-});
+}); //TODO where's this from?
   
 
 const prefix = '!';
