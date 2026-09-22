@@ -317,7 +317,7 @@ const dailyJob = new CronJob('0 1 * * *', () => dailyTask(channel), null, true, 
 
 
   
-  job.start();
+  //job.start();
   console.log('🕒 Cron job started: Every 10 minutes');
 }); //TODO where's this from?
   
