@@ -154,6 +154,22 @@ function getMemberName(id) {
   return member ? member.name : 'Unknown';
 }
 
+async function getTargetChannel() {
+  const channelId = process.env.CHANNEL_ID;
+
+  if (!channelId) {
+    throw new Error('CHANNEL_ID is not configured');
+  }
+
+  const channel = await client.channels.fetch(channelId);
+
+  if (!channel) {
+    throw new Error(`Channel ${channelId} not found`);
+  }
+
+  return channel;
+}
+
 // ------------ API FETCH --------------
 async function fetchApiData() {
   try {
@@ -330,20 +346,31 @@ client.on('messageCreate', async (message) => {
   const command = args.shift().toLowerCase();
 
   if (command === 'daily') {
-  const guild = client.guilds.cache.first(); // or use a specific guild ID
-  const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-  if (!channel) return message.reply('❌ Channel not found');
-  await dailyTask(channel);
-  message.reply('Daily summary sent!');
-  }
+    try {
+        const channel = await getTargetChannel();
+        await dailyTask(channel);
+        await message.reply('Daily summary sent!');
+      } catch (err) {
+        console.error('Failed to get target channel:', err);
+        await message.reply('❌ Could not find the configured channel.');
+      }
+    }
 
 
-  if (command === 'revives' || command === 'revive' || command === 'revs' || command === 'rev' || command === 'r') {
-    const guild = client.guilds.cache.first();
-    const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-    if (!channel) return message.reply('Channel not found');
-
-    checkRevs(channel);
+  if (
+    command === 'revives' ||
+    command === 'revive' ||
+    command === 'revs' ||
+    command === 'rev' ||
+    command === 'r'
+  ) {
+    try {
+      const channel = await getTargetChannel();
+      await checkRevs(channel);
+    } catch (err) {
+      console.error('Failed to get target channel:', err);
+      await message.reply('❌ Could not find the configured channel.');
+    }
   }
 
   
