@@ -279,7 +279,8 @@ client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   const guild = client.guilds.cache.first();
   //const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-  const channel = "1552072156337147904"; //TODO REVERT
+  const channel = 1552072156337147904; //TODO REVERT
+  console.log(channel);
   if (!channel) return console.error('❌ Channel not found');
 
   const job = new CronJob('*/10 * * * *', async () => {
