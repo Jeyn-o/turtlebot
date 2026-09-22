@@ -277,19 +277,34 @@ client.on('interactionCreate', async interaction => {
 // ------------ READY + CRON --------------
 client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-  const guild = client.guilds.cache.first();
-  //const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-  const channelId = '1552072156337147904';
-  const channel = await client.channels.fetch(channelId);
-  console.log(channel);
-  
-  if (!channel) return console.error('❌ Channel not found');
 
-  const job = new CronJob('*/10 * * * *', async () => {
-    if (await fetchApiData()) {
-      await updateEmbed(channel);
+  const channelId = process.env.CHANNEL_ID;
+
+  if (!channelId) {
+    return console.error('❌ CHANNEL_ID is not configured');
+  }
+
+  try {
+    const channel = await client.channels.fetch(channelId);
+
+    if (!channel) {
+      return console.error(`❌ Channel ${channelId} not found`);
     }
-  });
+
+    console.log(`✅ Using channel: #${channel.name} (${channel.id})`);
+
+    const job = new CronJob('*/10 * * * *', async () => {
+      if (await fetchApiData()) {
+        await updateEmbed(channel);
+      }
+    });
+
+    job.start();
+
+  } catch (error) {
+    console.error('❌ Failed to fetch Discord channel:', error);
+  }
+});
 
 //Daily summary
   //const dailyJob = new CronJob('0 1 * * *', dailyTask, null, true, 'UTC'); 
