@@ -1,4 +1,3 @@
-```js
 // index.js
 
 console.log(`Bot starting. IS_PRIMARY: ${process.env.IS_PRIMARY}`);
@@ -716,4 +715,3 @@ const timestamp = formatDateTime();
 
 // ------------ LOGIN --------------
 client.login(process.env.TOKEN);
-```
